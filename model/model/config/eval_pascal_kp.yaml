@@ -1,0 +1,43 @@
+hydra:
+  run:
+    dir: .
+  output_subdir: ${checkpoint_dir}
+
+
+defaults:
+  - base
+  - dataset: image
+  - model: ponymation
+
+
+model:
+  enable_render: true
+  cfg_render:
+    render_default: false
+    renderer_spp: 4
+  cfg_predictor_base:
+    cfg_shape:
+      grid_res_coarse_iter_range: [0, 150000]
+  cfg_predictor_instance:
+    enable_motion_vae: true
+    enable_deform: true
+    cfg_articulation:
+      extra_constraints: false
+  cfg_loss:
+    artivel_smooth_loss_weight: 1
+    campose_smooth_loss_weight: 1
+
+dataset:
+  in_image_size: 256
+  out_image_size: 256
+  batch_size: 1
+  test_data_dir: ${oc.env:PHYSPONY_ROOT,..}/data/eval/pascal_kp
+  load_dino_feature: false
+  dino_feature_dim: 16
+
+
+run_train: false
+run_test: true
+checkpoint_dir: ${oc.env:PHYSPONY_CHECKPOINTS,../checkpoints}/ponymation/pretrained_horse_stage2_rot6d_withrendering_smoothing_extra_global
+checkpoint_name: checkpoint85000.pth
+test_result_dir: null

@@ -1,0 +1,96 @@
+env_name: "deepmimic_trajectory"
+
+env:
+    char_file: "data/assets/horse/test_full_box2_full.xml"
+    camera_mode: "track"
+
+    episode_length: 8.14 # seconds
+    global_obs: True
+    root_height_obs: True
+    pose_termination: True
+    pose_termination_dist: 5.0 # m
+    enable_phase_obs: False
+    enable_tar_obs: True
+    num_phase_encoding: 4
+    tar_obs_steps: [1]
+    rand_reset: False
+    zero_center_action: True
+
+    ref_char_offset: [2.0, 0.0, 0.06] # m
+    init_pose: [0, 0, 1.38, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+
+    enable_early_termination: True
+    termination_height: 0.3
+    key_bodies: ["frfoot", "flfoot", "brfoot", "blfoot"]
+    contact_bodies: ["frfoot", "flfoot", "brfoot", "blfoot"]
+    log_tracking_error: True
+
+    motion_file: "data/motions/horse_kin/000010_motion.pkl"
+
+    joint_err_w: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.6, 0.5, 1.0, 1.0, 1.0, 0.6, 0.5, 1.0, 1.0, 1.0, 0.6, 0.5, 0.5, 0.5, 1.0, 1.0, 1.0, 0.6, 0.5, 1.0, 1.0, 1.0, 0.6, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5]
+ 
+    # Standard DeepMimic rewards
+    reward_pose_w: 1.0
+    reward_vel_w: 0.2
+    reward_root_pose_w: 0.15
+    reward_root_vel_w: 0.1
+    reward_key_pos_w: 0.15
+
+    reward_pose_scale: 0.25
+    reward_vel_scale: 0.01
+    reward_root_pose_scale: 5.0
+    reward_root_vel_scale: 1.0
+    reward_key_pos_scale: 10.0
+
+    # Trajectory following reward parameters
+    trajectory_reward_enabled: True
+    trajectory_reward_weight: 0.1  # Weight of trajectory reward relative to base rewards
+    trajectory_heading_weight: 0.4  # Weight of heading alignment within trajectory reward
+    trajectory_speed_weight: 0.3    # Weight of speed matching within trajectory reward
+    trajectory_trend_weight: 0.3    # Weight of trend following within trajectory reward
+    
+    # Trajectory smoothing and lookahead parameters
+    trajectory_lookahead_time: 0.2  # seconds to look ahead for trend following
+    trajectory_smoothing_alpha: 0.7  # Exponential moving average alpha for velocity smoothing (0-1, higher = more smoothing)
+    trajectory_position_tolerance: 0.5  # meters - position errors within this tolerance get full reward
+    
+    # Trajectory reward scaling parameters (higher = steeper reward decay)
+    trajectory_heading_scale: 5.0   # Scale for heading alignment reward decay
+    trajectory_speed_scale: 2.0     # Scale for speed matching reward decay
+    trajectory_trend_scale: 3.0     # Scale for trend following reward decay
+
+    # Power regularization (from parent class)
+    power_reward: True
+    power_coefficient: 0.00005
+
+
+engine:
+    engine_name: "isaac_gym"
+    
+    control_mode: "pos"
+    sim_freq: 60
+    control_freq: 30
+    env_spacing: 5
+    
+    plane:
+        static_friction: 1.0
+        dynamic_friction: 1.0
+        restitution: 0.0
+    
+    sim:
+        substeps: 2 # 120 Hz
+        physx:
+            num_threads: 4
+            solver_type: 1  # 0: pgs, 1: tgs
+            num_position_iterations: 4
+            num_velocity_iterations: 0
+            contact_offset: 0.02
+            rest_offset: 0.0
+            bounce_threshold_velocity: 0.2
+            max_depenetration_velocity: 10.0
+            default_buffer_size_multiplier: 10.0
+
+        flex:
+            num_inner_iterations: 10
+            warm_start: 0.25
+

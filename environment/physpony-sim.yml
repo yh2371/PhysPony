@@ -1,0 +1,23 @@
+# Physics stage. Isaac Gym Preview 4 requires Python 3.8; after creating this env:
+#   pip install -e <isaacgym>/python
+name: physpony-sim
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+dependencies:
+  - python=3.8
+  - pip
+  - pytorch=2.0.0
+  - torchvision=0.15.0
+  - pytorch-cuda=11.8
+  - numpy=1.23.5
+  - pip:
+      - gym==0.26.2
+      - matplotlib
+      - pyyaml
+      - tensorboardX
+      - wandb>=0.17.4
+      - scipy
+      - imageio
+      - imageio-ffmpeg

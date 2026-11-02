@@ -1,0 +1,4 @@
+--num_envs 4096
+
+--env_config data/envs/deepmimic_horse_env_dataset_small_local_single.yaml
+--agent_config data/agents/deepmimic_horse_ppo_agent_single_sequence.yaml

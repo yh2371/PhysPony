@@ -1,0 +1,8 @@
+--num_envs 4096
+
+--env_config data/envs/deepmimic_horse_trajectory_env_10.yaml
+--agent_config data/agents/deepmimic_horse_ppo_agent.yaml
+
+--log_file output/log_10_finetune_fixed.txt
+--out_model_file output/model_10_finetune.pt
+--model_file output/model_uni_pretrained.pt

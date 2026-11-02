@@ -1,0 +1,1019 @@
+<mujoco model="horsecheet">
+  <!-- <size njmax="400" nconmax="400" nuser_jnt="1" nuser_site="1" nuser_tendon="1" nuser_sensor="1" nuser_actuator="16" nstack="600000"></size> -->
+  <compiler angle="degree" coordinate="local" inertiafromgeom="true"/>
+  <default>
+    <joint armature=".1" damping=".01" limited="true" solimplimit="0 .8 .03" solreflimit=".02 1" stiffness="300"/>
+    <geom conaffinity="0" condim="3" contype="0" friction="0.8 0.2 0.2" solimp="0.0 0.8 0.01" solref="0.02 1" rgba="0.4 0.33 0.26 1.0"/>
+    <position ctrllimited="true" ctrlrange="-1 1" kp="500"/>
+  </default>
+  <size nstack="300000" nuser_geom="1"/>
+  <custom>
+    <!-- brax custom params -->
+    <numeric data="2500" name="constraint_limit_stiffness"/>
+    <numeric data="27000" name="constraint_stiffness"/>
+    <numeric data="30" name="constraint_ang_damping"/>
+    <numeric data="80" name="constraint_vel_damping"/>
+    <numeric data="-0.05" name="ang_damping"/>
+    <numeric data="0.5" name="joint_scale_pos"/>
+    <numeric data="1" name="joint_scale_ang"/>
+    <numeric data="0" name="spring_mass_scale"/>
+    <numeric data="1" name="spring_inertia_scale"/>
+    <numeric data="20" name="matrix_inv_iterations"/>
+    <numeric data="15" name="solver_maxls"/>
+  </custom>
+  <option iterations="1" ls_iterations="4" solver="Newton" cone="pyramidal" impratio="1">
+    <flag eulerdamp="disable"/>
+  </option>
+  <asset>
+    <texture builtin="gradient" height="100" rgb1="1 1 1" rgb2="0 0 0" type="skybox" width="100"/>
+    <texture builtin="flat" height="1278" mark="cross" markrgb="1 1 1" name="texgeom" random="0.01" rgb1="0.8 0.6 0.9" rgb2="0.8 0.6 0.4" type="cube" width="127"/>
+    <texture builtin="checker" height="100" name="texplane" rgb1="0.4 0.4 0.4" rgb2="0.8 0.8 0.8" type="2d" width="100"/>
+    <material name="MatPlane" texrepeat="60 60" texture="texplane"/>
+    <material name="geom" texture="texgeom" texuniform="true"/>
+  </asset>
+  <worldbody>
+    <light cutoff="150" diffuse="2 2 2" dir="-0 0.2 -2.5" directional="true" exponent="5" pos="0 0 1.3" specular=".1 .1 .1"/>
+    <geom conaffinity="1" condim="3" material="MatPlane" name="floor" pos="0 0 -0.01" euler="0 0 0" size="64 64 64" type="plane" rgba="0.5 0.5 0.5 1.0"/>
+    <body name="spine2" pos="0 0 1.38">
+      <freejoint name="spine2"/>
+      <geom type="capsule" contype="1" conaffinity="1" density="100" fromto="-0.0844 0.0000 -0.0617 -0.1032 0.0000 -0.0754" size="0.1934" name="spine2"/>
+      <body name="1" pos="0 0 0">
+        <joint name="1_x" type="hinge" pos="0 0 0" axis="1 0 0" user="200 2 1 300 20 3" armature="0.01" range="-180 180" damping="2" stiffness="20"/>
+        <joint name="1_y" type="hinge" pos="0 0 0" axis="0 1 0" user="200 2 1 300 20 3" armature="0.01" range="-180 180" damping="2" stiffness="20"/>
+        <joint name="1_z" type="hinge" pos="0 0 0" axis="0 0 1" user="200 2 1 300 20 3" armature="0.01" range="-180 180" damping="2" stiffness="20"/>
+        <geom type="capsule" contype="1" conaffinity="1" density="100" fromto="0.0685 0.0000 -0.0319 0.0838 0.0000 -0.0390" size="0.1587" name="1"/>
+        <body name="torso" pos="0.1523 0 -0.0709">
+          <joint name="torso_x" type="hinge" pos="0 0 0" axis="1 0 0" user="500 5 1 500 10 2" armature="0.01" range="-180 180" damping="2" stiffness="20"/>
+          <joint name="torso_y" type="hinge" pos="0 0 0" axis="0 1 0" user="500 5 1 500 10 2" armature="0.01" range="-180 180" damping="2" stiffness="20"/>
+          <joint name="torso_z" type="hinge" pos="0 0 0" axis="0 0 1" user="500 5 1 500 10 2" armature="0.01" range="-180 180" damping="2" stiffness="20"/>
+          <geom type="capsule" contype="1" conaffinity="1" density="100" fromto="0.2111 -0.0000 -0.0639 0.2580 -0.0000 -0.0781" size="0.2822" name="torso"/>
+          <body name="spine1" pos="0.4691 0 -0.142">
+            <joint name="spine1_x" type="hinge" pos="0 0 0" axis="1 0 0" user="400 4 1 500 10 2" armature="0.01" range="-23.0000 30.0000" damping="2" stiffness="20"/>
+            <joint name="spine1_y" type="hinge" pos="0 0 0" axis="0 1 0" user="400 4 1 500 10 2" armature="0.01" range="-180.0000 180.0000" damping="2" stiffness="20"/>
+            <joint name="spine1_z" type="hinge" pos="0 0 0" axis="0 0 1" user="400 4 1 500 10 2" armature="0.01" range="-31.0000 29.0000" damping="2" stiffness="20"/>
+            <geom type="capsule" contype="1" conaffinity="1" density="100" fromto="0.1183 -0.0000 -0.0445 0.1446 -0.0000 -0.0544" size="0.2509" name="spine1"/>
+            <body name="4" pos="0.2374 0.1568 -0.1906">
+              <joint name="4_x" type="hinge" pos="0 0 0" axis="1 0 0" user="200 2 1 300 20 3" armature="0.01" range="-180.0000 180.0000" damping="2" stiffness="20"/>
+              <joint name="4_y" type="hinge" pos="0 0 0" axis="0 1 0" user="200 2 1 300 20 3" armature="0.01" range="-180.0000 180.0000" damping="2" stiffness="20"/>
+              <joint name="4_z" type="hinge" pos="0 0 0" axis="0 0 1" user="200 2 1 300 20 3" armature="0.01" range="-180.0000 180.0000" damping="2" stiffness="20"/>
+              <geom type="capsule" contype="1" conaffinity="1" density="100" fromto="-0.0088 0.0038 -0.0309 -0.0350 0.0153 -0.1235" size="0.0887" name="4"/>
+              <body name="frthigh" pos="-0.0438 0.0191 -0.1544">
+                <joint name="frthigh_x" type="hinge" pos="0 0 0" axis="1 0 0" user="300 3 1 500 10 2" armature="0.01" range="-180.0000 180.0000" damping="2" stiffness="20"/>
+                <joint name="frthigh_y" type="hinge" pos="0 0 0" axis="0 1 0" user="300 3 1 500 10 2" armature="0.01" range="-180.0000 180.0000" damping="2" stiffness="20"/>
+                <joint name="frthigh_z" type="hinge" pos="0 0 0" axis="0 0 1" user="300 3 1 500 10 2" armature="0.01" range="-180.0000 180.0000" damping="2" stiffness="20"/>
+                <geom type="capsule" contype="1" conaffinity="1" density="100" fromto="-0.0041 -0.0095 -0.0663 -0.0165 -0.0381 -0.2650" size="0.0679" name="frthigh"/>
+                <body name="frshin" pos="-0.0207 -0.0477 -0.3313">
+                  <joint name="frshin_x" type="hinge" pos="0 0 0" axis="1 0 0" user="250 2.5 1 500 10 2" armature="0.01" range="-180.0000 180.0000" damping="2" stiffness="20"/>
+                  <joint name="frshin_y" type="hinge" pos="0 0 0" axis="0 1 0" user="250 2.5 1 500 10 2" armature="0.01" range="-180.0000 180.0000" damping="2" stiffness="20"/>
+                  <joint name="frshin_z" type="hinge" pos="0 0 0" axis="0 0 1" user="250 2.5 1 500 10 2" armature="0.01" range="-180.0000 180.0000" damping="2" stiffness="20"/>
+                  <geom type="capsule" contype="1" conaffinity="1" density="100" fromto="-0.0024 -0.0025 -0.0524 -0.0098 -0.0099 -0.2095" size="0.0565" name="frshin"/>
+                  <body name="frankle" pos="-0.0122 -0.0124 -0.2618">
+                    <joint name="frankle_x" type="hinge" pos="0 0 0" axis="1 0 0" user="200 2 1 400 10 2" armature="0.01" range="-180.0000 180.0000" damping="2" stiffness="20"/>
+                    <joint name="frankle_y" type="hinge" pos="0 0 0" axis="0 1 0" user="200 2 1 400 10 2" armature="0.01" range="-180.0000 180.0000" damping="2" stiffness="20"/>
+                    <joint name="frankle_z" type="hinge" pos="0 0 0" axis="0 0 1" user="200 2 1 400 10 2" armature="0.01" range="-179.0000 179.0000" damping="2" stiffness="20"/>
+                    <geom type="capsule" contype="1" conaffinity="1" density="100" fromto="0.0096 0.0036 -0.0257 0.0384 0.0143 -0.1028" size="0.0421" name="frankle"/>
+                    <body name="frfoot" pos="0.0481 0.0179 -0.1285">
+                      <joint name="frfoot_x" type="hinge" pos="0 0 0" axis="1 0 0" user="100 1 1 200 5 1" armature="0.01" range="-180.0000 180.0000" damping="2" stiffness="20"/>
+                      <joint name="frfoot_y" type="hinge" pos="0 0 0" axis="0 1 0" user="100 1 1 200 5 1" armature="0.01" range="-180.0000 180.0000" damping="2" stiffness="20"/>
+                      <joint name="frfoot_z" type="hinge" pos="0 0 0" axis="0 0 1" user="100 1 1 200 5 1" armature="0.01" range="-180.0000 180.0000" damping="2" stiffness="20"/>
+                      <geom type="box" condim="3" contype="1" conaffinity="1" density="100.0000001" pos="0.0250 0.0099 -0.0633" size="0.0961 0.0349 0.059" quat="1.0000 0.0000 0.0000 0.0000" name="frfoot"/>
+                    </body>
+                  </body>
+                </body>
+              </body>
+            </body>
+            <body name="9" pos="0.2374 -0.1568 -0.1906">
+              <joint name="9_x" type="hinge" pos="0 0 0" axis="1 0 0" user="200 2 1 300 20 3" armature="0.01" range="-180.0000 180.0000" damping="2" stiffness="20"/>
+              <joint name="9_y" type="hinge" pos="0 0 0" axis="0 1 0" user="200 2 1 300 20 3" armature="0.01" range="-180.0000 180.0000" damping="2" stiffness="20"/>
+              <joint name="9_z" type="hinge" pos="0 0 0" axis="0 0 1" user="200 2 1 300 20 3" armature="0.01" range="-180.0000 180.0000" damping="2" stiffness="20"/>
+              <geom type="capsule" contype="1" conaffinity="1" density="100" fromto="-0.0088 -0.0038 -0.0309 -0.0350 -0.0153 -0.1235" size="0.0887" name="9"/>
+              <body name="flthigh" pos="-0.0438 -0.0191 -0.1544">
+                <joint name="flthigh_x" type="hinge" pos="0 0 0" axis="1 0 0" user="300 3 1 500 10 2" armature="0.01" range="-180.0000 180.0000" damping="2" stiffness="20"/>
+                <joint name="flthigh_y" type="hinge" pos="0 0 0" axis="0 1 0" user="300 3 1 500 10 2" armature="0.01" range="-180.0000 89.0000" damping="2" stiffness="20"/>
+                <joint name="flthigh_z" type="hinge" pos="0 0 0" axis="0 0 1" user="300 3 1 500 10 2" armature="0.01" range="-180.0000 180.0000" damping="2" stiffness="20"/>
+                <geom type="capsule" contype="1" conaffinity="1" density="100" fromto="-0.0041 0.0095 -0.0663 -0.0165 0.0381 -0.2650" size="0.0679" name="flthigh"/>
+                <body name="flshin" pos="-0.0207 0.0477 -0.3313">
+                  <joint name="flshin_x" type="hinge" pos="0 0 0" axis="1 0 0" user="250 2.5 1 500 10 2" armature="0.01" range="-180.0000 180.0000" damping="2" stiffness="20"/>
+                  <joint name="flshin_y" type="hinge" pos="0 0 0" axis="0 1 0" user="250 2.5 1 500 10 2" armature="0.01" range="-180.0000 180.0000" damping="2" stiffness="20"/>
+                  <joint name="flshin_z" type="hinge" pos="0 0 0" axis="0 0 1" user="250 2.5 1 500 10 2" armature="0.01" range="-180.0000 180.0000" damping="2" stiffness="20"/>
+                  <geom type="capsule" contype="1" conaffinity="1" density="100" fromto="-0.0024 0.0025 -0.0524 -0.0098 0.0099 -0.2095" size="0.0565" name="flshin"/>
+                  <body name="flankle" pos="-0.0122 0.0124 -0.2618">
+                    <joint name="flankle_x" type="hinge" pos="0 0 0" axis="1 0 0" user="200 2 1 400 10 2" armature="0.01" range="-180.0000 180.0000" damping="2" stiffness="20"/>
+                    <joint name="flankle_y" type="hinge" pos="0 0 0" axis="0 1 0" user="200 2 1 400 10 2" armature="0.01" range="-180.0000 180.0000" damping="2" stiffness="20"/>
+                    <joint name="flankle_z" type="hinge" pos="0 0 0" axis="0 0 1" user="200 2 1 400 10 2" armature="0.01" range="-180.0000 180.0000" damping="2" stiffness="20"/>
+                    <geom type="capsule" contype="1" conaffinity="1" density="100" fromto="0.0096 -0.0036 -0.0257 0.0384 -0.0143 -0.1028" size="0.0421" name="flankle"/>
+                    <body name="flfoot" pos="0.0481 -0.0179 -0.1285">
+                      <joint name="flfoot_x" type="hinge" pos="0 0 0" axis="1 0 0" user="100 1 1 200 5 1" armature="0.01" range="-180.0000 180.0000" damping="2" stiffness="20"/>
+                      <joint name="flfoot_y" type="hinge" pos="0 0 0" axis="0 1 0" user="100 1 1 200 5 1" armature="0.01" range="-180.0000 180.0000" damping="2" stiffness="20"/>
+                      <joint name="flfoot_z" type="hinge" pos="0 0 0" axis="0 0 1" user="100 1 1 200 5 1" armature="0.01" range="-180.0000 180.0000" damping="2" stiffness="20"/>
+                      <geom type="box" condim="3" contype="1" conaffinity="1" density="99.9999986" pos="0.0250 -0.0079 -0.0633" size="0.0961 0.0349 0.059" quat="1.0000 0.0000 0.0000 0.0000" name="flfoot"/>
+                    </body>
+                  </body>
+                </body>
+              </body>
+            </body>
+            <body name="14" pos="0.3143 0 0.0843">
+              <joint name="14_x" type="hinge" pos="0 0 0" axis="1 0 0" user="200 2 1 300 20 3" armature="0.01" range="-0.1000 0.1000" damping="2" stiffness="20"/>
+              <joint name="14_y" type="hinge" pos="0 0 0" axis="0 1 0" user="200 2 1 300 20 3" armature="0.01" range="-0.1000 0.1000" damping="2" stiffness="20"/>
+              <joint name="14_z" type="hinge" pos="0 0 0" axis="0 0 1" user="200 2 1 300 20 3" armature="0.01" range="-0.1000 0.1000" damping="2" stiffness="20"/>
+              <geom type="capsule" contype="1" conaffinity="1" density="100" fromto="0.0108 -0.0000 0.0237 0.0433 -0.0000 0.0947" size="0.1159" name="14"/>
+              <body name="neck1" pos="0.0541 0 0.1184">
+                <joint name="neck1_x" type="hinge" pos="0 0 0" axis="1 0 0" user="200 2 1 300 20 3" armature="0.01" range="-162.0000 175.0000" damping="2" stiffness="20"/>
+                <joint name="neck1_y" type="hinge" pos="0 0 0" axis="0 1 0" user="200 2 1 300 20 3" armature="0.01" range="-71.0000 90.0000" damping="2" stiffness="20"/>
+                <joint name="neck1_z" type="hinge" pos="0 0 0" axis="0 0 1" user="200 2 1 300 20 3" armature="0.01" range="-178.0000 178.0000" damping="2" stiffness="20"/>
+                <geom type="capsule" contype="1" conaffinity="1" density="100" fromto="0.0296 -0.0000 0.0511 0.1185 -0.0000 0.2044" size="0.1227" name="neck1"/>
+                <body name="16" pos="0.1481 0 0.2555">
+                  <joint name="16_x" type="hinge" pos="0 0 0" axis="1 0 0" user="200 2 1 300 20 3" armature="0.01" range="-0.1000 0.1000" damping="2" stiffness="20"/>
+                  <joint name="16_y" type="hinge" pos="0 0 0" axis="0 1 0" user="200 2 1 300 20 3" armature="0.01" range="-0.1000 0.1000" damping="2" stiffness="20"/>
+                  <joint name="16_z" type="hinge" pos="0 0 0" axis="0 0 1" user="200 2 1 300 20 3" armature="0.01" range="-0.1000 0.1000" damping="2" stiffness="20"/>
+                  <geom type="capsule" contype="1" conaffinity="1" density="100" fromto="0.0195 0.0000 0.0191 0.0779 0.0000 0.0762" size="0.1144" name="16"/>
+                  <body name="neck2" pos="0.0974 0 0.0953">
+                    <joint name="neck2_x" type="hinge" pos="0 0 0" axis="1 0 0" user="200 2 1 300 20 3" armature="0.01" range="-45.0000 48.0000" damping="2" stiffness="20"/>
+                    <joint name="neck2_y" type="hinge" pos="0 0 0" axis="0 1 0" user="200 2 1 300 20 3" armature="0.01" range="-55.0000 55.0000" damping="2" stiffness="20"/>
+                    <joint name="neck2_z" type="hinge" pos="0 0 0" axis="0 0 1" user="200 2 1 300 20 3" armature="0.01" range="-84.0000 86.0000" damping="2" stiffness="20"/>
+                    <geom type="capsule" contype="1" conaffinity="1" density="100" fromto="0.0394 0.0000 0.0085 0.1577 0.0000 0.0339" size="0.1659" name="neck2"/>
+                    <body name="head" pos="0.3268 0 -0.2321">
+                      <joint name="head_x" type="hinge" pos="0 0 0" axis="1 0 0" user="150 1 1 250 50 4" armature="0.01" range="-20.0000 22.0000" damping="2" stiffness="20"/>
+                      <joint name="head_y" type="hinge" pos="0 0 0" axis="0 1 0" user="150 1 1 250 50 4" armature="0.01" range="-20.0000 18.0000" damping="2" stiffness="20"/>
+                      <joint name="head_z" type="hinge" pos="0 0 0" axis="0 0 1" user="150 1 1 250 50 4" armature="0.01" range="-17.0000 18.0000" damping="2" stiffness="20"/>
+                      <geom type="sphere" contype="1" conaffinity="1" density="100" size="0.1030" pos="0.0000 0.0000 0.0000" name="head"/>
+                    </body>
+                    <body name="34" pos="0.1323 0.0853 0.1796">
+                      <joint name="34_x" type="hinge" pos="0 0 0" axis="1 0 0" user="200 2 1 300 20 3" armature="0.01" range="-0.1000 0.1000" damping="2" stiffness="20"/>
+                      <joint name="34_y" type="hinge" pos="0 0 0" axis="0 1 0" user="200 2 1 300 20 3" armature="0.01" range="-0.1000 0.1000" damping="2" stiffness="20"/>
+                      <joint name="34_z" type="hinge" pos="0 0 0" axis="0 0 1" user="200 2 1 300 20 3" armature="0.01" range="-0.1000 0.1000" damping="2" stiffness="20"/>
+                      <geom type="capsule" contype="1" conaffinity="1" density="100" fromto="0.0269 0.0175 0.0363 0.1075 0.0698 0.1453" size="0.02" name="34"/>
+                    </body>
+                    <body name="35" pos="0.1323 -0.0853 0.1796">
+                      <joint name="35_x" type="hinge" pos="0 0 0" axis="1 0 0" user="200 2 1 300 20 3" armature="0.01" range="-0.1000 0.1000" damping="2" stiffness="20"/>
+                      <joint name="35_y" type="hinge" pos="0 0 0" axis="0 1 0" user="200 2 1 300 20 3" armature="0.01" range="-0.1000 0.1000" damping="2" stiffness="20"/>
+                      <joint name="35_z" type="hinge" pos="0 0 0" axis="0 0 1" user="200 2 1 300 20 3" armature="0.01" range="-0.1000 0.1000" damping="2" stiffness="20"/>
+                      <geom type="capsule" contype="1" conaffinity="1" density="100" fromto="0.0269 -0.0167 0.0363 0.1075 -0.0666 0.1453" size="0.02" name="35"/>
+                    </body>
+                  </body>
+                </body>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+      <body name="brthigh" pos="-0.2005 0.1054 -0.2517">
+        <joint name="brthigh_x" type="hinge" pos="0 0 0" axis="1 0 0" user="300 3 1 500 10 2" armature="0.01" range="-180.0000 180.0000" damping="2" stiffness="20"/>
+        <joint name="brthigh_y" type="hinge" pos="0 0 0" axis="0 1 0" user="300 3 1 500 10 2" armature="0.01" range="-180.0000 180.0000" damping="2" stiffness="20"/>
+        <joint name="brthigh_z" type="hinge" pos="0 0 0" axis="0 0 1" user="300 3 1 500 10 2" armature="0.01" range="-180.0000 180.0000" damping="2" stiffness="20"/>
+        <geom type="capsule" contype="1" conaffinity="1" density="100" fromto="0.0008 0.0150 -0.0548 0.0031 0.0602 -0.2193" size="0.1266" name="brthigh"/>
+        <body name="19" pos="0.0038 0.0752 -0.2741">
+          <joint name="19_x" type="hinge" pos="0 0 0" axis="1 0 0" user="200 2 1 300 20 3" armature="0.01" range="-0.1000 0.1000" damping="2" stiffness="20"/>
+          <joint name="19_y" type="hinge" pos="0 0 0" axis="0 1 0" user="200 2 1 300 20 3" armature="0.01" range="-0.1000 0.1000" damping="2" stiffness="20"/>
+          <joint name="19_z" type="hinge" pos="0 0 0" axis="0 0 1" user="200 2 1 300 20 3" armature="0.01" range="-0.1000 0.1000" damping="2" stiffness="20"/>
+          <geom type="capsule" contype="1" conaffinity="1" density="100" fromto="-0.0360 -0.0024 -0.0506 -0.1440 -0.0096 -0.2022" size="0.0652" name="19"/>
+          <body name="brshin" pos="-0.18 -0.012 -0.2528">
+            <joint name="brshin_x" type="hinge" pos="0 0 0" axis="1 0 0" user="250 2.5 1 500 10 2" armature="0.01" range="-180.0000 180.0000" damping="2" stiffness="20"/>
+            <joint name="brshin_y" type="hinge" pos="0 0 0" axis="0 1 0" user="250 2.5 1 500 10 2" armature="0.01" range="-180.0000 180.0000" damping="2" stiffness="20"/>
+            <joint name="brshin_z" type="hinge" pos="0 0 0" axis="0 0 1" user="250 2.5 1 500 10 2" armature="0.01" range="-180.0000 180.0000" damping="2" stiffness="20"/>
+            <geom type="capsule" contype="1" conaffinity="1" density="100" fromto="-0.0069 -0.0037 -0.0643 -0.0277 -0.0147 -0.2573" size="0.0572" name="brshin"/>
+            <body name="brankle" pos="-0.0346 -0.0184 -0.3217">
+              <joint name="brankle_x" type="hinge" pos="0 0 0" axis="1 0 0" user="200 2 1 400 10 2" armature="0.01" range="-180.0000 180.0000" damping="2" stiffness="20"/>
+              <joint name="brankle_y" type="hinge" pos="0 0 0" axis="0 1 0" user="200 2 1 400 10 2" armature="0.01" range="-180.0000 180.0000" damping="2" stiffness="20"/>
+              <joint name="brankle_z" type="hinge" pos="0 0 0" axis="0 0 1" user="200 2 1 400 10 2" armature="0.01" range="-180.0000 180.0000" damping="2" stiffness="20"/>
+              <geom type="capsule" contype="1" conaffinity="1" density="100" fromto="0.0111 -0.0013 -0.0296 0.0444 -0.0052 -0.1185" size="0.0468" name="brankle"/>
+              <body name="brfoot" pos="0.0555 -0.0065 -0.1481">
+                <joint name="brfoot_x" type="hinge" pos="0 0 0" axis="1 0 0" user="100 1 1 200 5 1" armature="0.01" range="-180.0000 180.0000" damping="2" stiffness="20"/>
+                <joint name="brfoot_y" type="hinge" pos="0 0 0" axis="0 1 0" user="100 1 1 200 5 1" armature="0.01" range="-180.0000 180.0000" damping="2" stiffness="20"/>
+                <joint name="brfoot_z" type="hinge" pos="0 0 0" axis="0 0 1" user="100 1 1 200 5 1" armature="0.01" range="-180.0000 180.0000" damping="2" stiffness="20"/>
+                <geom type="box" condim="3" contype="1" conaffinity="1" density="99.9999967" pos="0.0288 -0.0022 -0.0731" size="0.091 0.0439 0.0445" quat="1.0000 0.0000 0.0000 0.0000" name="brfoot"/>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+      <body name="blthigh" pos="-0.2005 -0.1054 -0.2517">
+        <joint name="blthigh_x" type="hinge" pos="0 0 0" axis="1 0 0" user="300 3 1 500 10 2" armature="0.01" range="-180.0000 180.0000" damping="2" stiffness="20"/>
+        <joint name="blthigh_y" type="hinge" pos="0 0 0" axis="0 1 0" user="300 3 1 500 10 2" armature="0.01" range="-180.0000 180.0000" damping="2" stiffness="20"/>
+        <joint name="blthigh_z" type="hinge" pos="0 0 0" axis="0 0 1" user="300 3 1 500 10 2" armature="0.01" range="-180.0000 180.0000" damping="2" stiffness="20"/>
+        <geom type="capsule" contype="1" conaffinity="1" density="100" fromto="0.0008 -0.0150 -0.0548 0.0031 -0.0602 -0.2193" size="0.1374" name="blthigh"/>
+        <body name="24" pos="0.0038 -0.0752 -0.2741">
+          <joint name="24_x" type="hinge" pos="0 0 0" axis="1 0 0" user="200 2 1 300 20 3" armature="0.01" range="-0.1000 0.1000" damping="2" stiffness="20"/>
+          <joint name="24_y" type="hinge" pos="0 0 0" axis="0 1 0" user="200 2 1 300 20 3" armature="0.01" range="-0.1000 0.1000" damping="2" stiffness="20"/>
+          <joint name="24_z" type="hinge" pos="0 0 0" axis="0 0 1" user="200 2 1 300 20 3" armature="0.01" range="-0.1000 0.1000" damping="2" stiffness="20"/>
+          <geom type="capsule" contype="1" conaffinity="1" density="100" fromto="-0.0360 0.0024 -0.0506 -0.1440 0.0096 -0.2022" size="0.0652" name="24"/>
+          <body name="blshin" pos="-0.18 0.012 -0.2528">
+            <joint name="blshin_x" type="hinge" pos="0 0 0" axis="1 0 0" user="250 2.5 1 500 10 2" armature="0.01" range="-180.0000 180.0000" damping="2" stiffness="20"/>
+            <joint name="blshin_y" type="hinge" pos="0 0 0" axis="0 1 0" user="250 2.5 1 500 10 2" armature="0.01" range="-180.0000 180.0000" damping="2" stiffness="20"/>
+            <joint name="blshin_z" type="hinge" pos="0 0 0" axis="0 0 1" user="250 2.5 1 500 10 2" armature="0.01" range="-180.0000 180.0000" damping="2" stiffness="20"/>
+            <geom type="capsule" contype="1" conaffinity="1" density="100" fromto="-0.0069 0.0037 -0.0643 -0.0277 0.0147 -0.2573" size="0.0572" name="blshin"/>
+            <body name="blankle" pos="-0.0346 0.0184 -0.3217">
+              <joint name="blankle_x" type="hinge" pos="0 0 0" axis="1 0 0" user="200 2 1 400 10 2" armature="0.01" range="-179.0000 179.0000" damping="2" stiffness="20"/>
+              <joint name="blankle_y" type="hinge" pos="0 0 0" axis="0 1 0" user="200 2 1 400 10 2" armature="0.01" range="-180.0000 180.0000" damping="2" stiffness="20"/>
+              <joint name="blankle_z" type="hinge" pos="0 0 0" axis="0 0 1" user="200 2 1 400 10 2" armature="0.01" range="-179.0000 180.0000" damping="2" stiffness="20"/>
+              <geom type="capsule" contype="1" conaffinity="1" density="100" fromto="0.0111 0.0013 -0.0296 0.0444 0.0052 -0.1185" size="0.0468" name="blankle"/>
+              <body name="blfoot" pos="0.0555 0.0065 -0.1481">
+                <joint name="blfoot_x" type="hinge" pos="0 0 0" axis="1 0 0" user="100 1 1 200 5 1" armature="0.01" range="-180.0000 180.0000" damping="2" stiffness="20"/>
+                <joint name="blfoot_y" type="hinge" pos="0 0 0" axis="0 1 0" user="100 1 1 200 5 1" armature="0.01" range="-180.0000 180.0000" damping="2" stiffness="20"/>
+                <joint name="blfoot_z" type="hinge" pos="0 0 0" axis="0 0 1" user="100 1 1 200 5 1" armature="0.01" range="-180.0000 180.0000" damping="2" stiffness="20"/>
+                <geom type="box" condim="3" contype="1" conaffinity="1" density="99.9999966" pos="0.0288 0.0042 -0.0731" size="0.091 0.0439 0.0445" quat="1.0000 0.0000 0.0000 0.0000" name="blfoot"/>
+              </body>       
+            </body>
+          </body>
+        </body>
+      </body>
+      <body name="tail1" pos="-0.3492 0 -0.045">
+        <joint name="tail1_x" type="hinge" pos="0 0 0" axis="1 0 0" user="100 1 1 200 10 2" armature="0.01" range="-178.0000 178.0000" damping="2" stiffness="20"/>
+        <joint name="tail1_y" type="hinge" pos="0 0 0" axis="0 1 0" user="100 1 1 200 10 2" armature="0.01" range="-58.0000 89.0000" damping="2" stiffness="20"/>
+        <joint name="tail1_z" type="hinge" pos="0 0 0" axis="0 0 1" user="100 1 1 200 10 2" armature="0.01" range="-178.0000 178.0000" damping="2" stiffness="20"/>
+        <geom type="capsule" contype="1" conaffinity="1" density="100" fromto="-0.0304 0.0000 -0.0193 -0.1215 0.0000 -0.0773" size="0.0507" name="tail1"/>
+        <body name="29" pos="-0.1519 0 -0.0966">
+          <joint name="29_x" type="hinge" pos="0 0 0" axis="1 0 0" user="200 2 1 300 20 3" armature="0.01" range="-0.1000 0.1000" damping="2" stiffness="20"/>
+          <joint name="29_y" type="hinge" pos="0 0 0" axis="0 1 0" user="200 2 1 300 20 3" armature="0.01" range="-0.1000 0.1000" damping="2" stiffness="20"/>
+          <joint name="29_z" type="hinge" pos="0 0 0" axis="0 0 1" user="200 2 1 300 20 3" armature="0.01" range="-0.1000 0.1000" damping="2" stiffness="20"/>
+          <geom type="capsule" contype="1" conaffinity="1" density="100" fromto="-0.0020 -0.0000 -0.0226 -0.0080 -0.0000 -0.0905" size="0.0666" name="29"/>
+          <body name="30" pos="-0.01 0 -0.1131">
+            <joint name="30_x" type="hinge" pos="0 0 0" axis="1 0 0" user="200 2 1 300 20 3" armature="0.01" range="-0.1000 0.1000" damping="2" stiffness="20"/>
+            <joint name="30_y" type="hinge" pos="0 0 0" axis="0 1 0" user="200 2 1 300 20 3" armature="0.01" range="-0.1000 0.1000" damping="2" stiffness="20"/>
+            <joint name="30_z" type="hinge" pos="0 0 0" axis="0 0 1" user="200 2 1 300 20 3" armature="0.01" range="-0.1000 0.1000" damping="2" stiffness="20"/>
+            <geom type="capsule" contype="1" conaffinity="1" density="100" fromto="-0.0064 0.0000 -0.0549 -0.0257 0.0000 -0.2195" size="0.0848" name="30"/>
+            <body name="31" pos="-0.0321 0 -0.2744">
+              <joint name="31_x" type="hinge" pos="0 0 0" axis="1 0 0" user="200 2 1 300 20 3" armature="0.01" range="-0.1000 0.1000" damping="2" stiffness="20"/>
+              <joint name="31_y" type="hinge" pos="0 0 0" axis="0 1 0" user="200 2 1 300 20 3" armature="0.01" range="-0.1000 0.1000" damping="2" stiffness="20"/>
+              <joint name="31_z" type="hinge" pos="0 0 0" axis="0 0 1" user="200 2 1 300 20 3" armature="0.01" range="-0.1000 0.1000" damping="2" stiffness="20"/>
+              <geom type="capsule" contype="1" conaffinity="1" density="100" fromto="0.0082 0.0000 -0.0550 0.0328 0.0000 -0.2201" size="0.0848" name="31"/>
+              <body name="tail2" pos="0.0409 0 -0.2752">
+                <joint name="tail2_x" type="hinge" pos="0 0 0" axis="1 0 0" user="50 1 1 150 5 1" armature="0.01" range="-180.0000 180.0000" damping="2" stiffness="20"/>
+                <joint name="tail2_y" type="hinge" pos="0 0 0" axis="0 1 0" user="50 1 1 150 5 1" armature="0.01" range="-89.0000 89.0000" damping="2" stiffness="20"/>
+                <joint name="tail2_z" type="hinge" pos="0 0 0" axis="0 0 1" user="50 1 1 150 5 1" armature="0.01" range="-180.0000 180.0000" damping="2" stiffness="20"/>
+                <geom type="sphere" contype="1" conaffinity="1" density="100" size="0.0562" pos="0.0000 0.0000 0.0000" name="tail2"/>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+  <actuator>
+    <position name="1_x" joint="1_x" gear="1"/>
+    <position name="1_y" joint="1_y" gear="1"/>
+    <position name="1_z" joint="1_z" gear="1"/>
+    <position name="torso_x" joint="torso_x" gear="1"/>
+    <position name="torso_y" joint="torso_y" gear="1"/>
+    <position name="torso_z" joint="torso_z" gear="1"/>
+    <position name="spine1_x" joint="spine1_x" gear="1"/>
+    <position name="spine1_y" joint="spine1_y" gear="1"/>
+    <position name="spine1_z" joint="spine1_z" gear="1"/>
+    <position name="4_x" joint="4_x" gear="1"/>
+    <position name="4_y" joint="4_y" gear="1"/>
+    <position name="4_z" joint="4_z" gear="1"/>
+    <position name="frthigh_x" joint="frthigh_x" gear="1"/>
+    <position name="frthigh_y" joint="frthigh_y" gear="1"/>
+    <position name="frthigh_z" joint="frthigh_z" gear="1"/>
+    <position name="frshin_x" joint="frshin_x" gear="1"/>
+    <position name="frshin_y" joint="frshin_y" gear="1"/>
+    <position name="frshin_z" joint="frshin_z" gear="1"/>
+    <position name="frankle_x" joint="frankle_x" gear="1"/>
+    <position name="frankle_y" joint="frankle_y" gear="1"/>
+    <position name="frankle_z" joint="frankle_z" gear="1"/>
+    <position name="frfoot_x" joint="frfoot_x" gear="1"/>
+    <position name="frfoot_y" joint="frfoot_y" gear="1"/>
+    <position name="frfoot_z" joint="frfoot_z" gear="1"/>
+    <position name="9_x" joint="9_x" gear="1"/>
+    <position name="9_y" joint="9_y" gear="1"/>
+    <position name="9_z" joint="9_z" gear="1"/>
+    <position name="flthigh_x" joint="flthigh_x" gear="1"/>
+    <position name="flthigh_y" joint="flthigh_y" gear="1"/>
+    <position name="flthigh_z" joint="flthigh_z" gear="1"/>
+    <position name="flshin_x" joint="flshin_x" gear="1"/>
+    <position name="flshin_y" joint="flshin_y" gear="1"/>
+    <position name="flshin_z" joint="flshin_z" gear="1"/>
+    <position name="flankle_x" joint="flankle_x" gear="1"/>
+    <position name="flankle_y" joint="flankle_y" gear="1"/>
+    <position name="flankle_z" joint="flankle_z" gear="1"/>
+    <position name="flfoot_x" joint="flfoot_x" gear="1"/>
+    <position name="flfoot_y" joint="flfoot_y" gear="1"/>
+    <position name="flfoot_z" joint="flfoot_z" gear="1"/>
+    <!-- <position name="14_x" joint="14_x" gear="1"/>
+    <position name="14_y" joint="14_y" gear="1"/>
+    <position name="14_z" joint="14_z" gear="1"/> -->
+    <position name="neck1_x" joint="neck1_x" gear="1"/>
+    <position name="neck1_y" joint="neck1_y" gear="1"/>
+    <position name="neck1_z" joint="neck1_z" gear="1"/>
+    <!-- <position name="16_x" joint="16_x" gear="1"/>
+    <position name="16_y" joint="16_y" gear="1"/>
+    <position name="16_z" joint="16_z" gear="1"/> -->
+    <position name="neck2_x" joint="neck2_x" gear="1"/>
+    <position name="neck2_y" joint="neck2_y" gear="1"/>
+    <position name="neck2_z" joint="neck2_z" gear="1"/>
+    <position name="head_x" joint="head_x" gear="1"/>
+    <position name="head_y" joint="head_y" gear="1"/>
+    <position name="head_z" joint="head_z" gear="1"/>
+    <!-- <position name="34_x" joint="34_x" gear="1"/>
+    <position name="34_y" joint="34_y" gear="1"/>
+    <position name="34_z" joint="34_z" gear="1"/>
+    <position name="35_x" joint="35_x" gear="1"/>
+    <position name="35_y" joint="35_y" gear="1"/>
+    <position name="35_z" joint="35_z" gear="1"/> -->
+    <position name="brthigh_x" joint="brthigh_x" gear="1"/>
+    <position name="brthigh_y" joint="brthigh_y" gear="1"/>
+    <position name="brthigh_z" joint="brthigh_z" gear="1"/>
+    <!-- <position name="19_x" joint="19_x" gear="1"/>
+    <position name="19_y" joint="19_y" gear="1"/>
+    <position name="19_z" joint="19_z" gear="1"/> -->
+    <position name="brshin_x" joint="brshin_x" gear="1"/>
+    <position name="brshin_y" joint="brshin_y" gear="1"/>
+    <position name="brshin_z" joint="brshin_z" gear="1"/>
+    <position name="brankle_x" joint="brankle_x" gear="1"/>
+    <position name="brankle_y" joint="brankle_y" gear="1"/>
+    <position name="brankle_z" joint="brankle_z" gear="1"/>
+    <position name="brfoot_x" joint="brfoot_x" gear="1"/>
+    <position name="brfoot_y" joint="brfoot_y" gear="1"/>
+    <position name="brfoot_z" joint="brfoot_z" gear="1"/>
+    <position name="blthigh_x" joint="blthigh_x" gear="1"/>
+    <position name="blthigh_y" joint="blthigh_y" gear="1"/>
+    <position name="blthigh_z" joint="blthigh_z" gear="1"/>
+    <!-- <position name="24_x" joint="24_x" gear="1"/>
+    <position name="24_y" joint="24_y" gear="1"/>
+    <position name="24_z" joint="24_z" gear="1"/> -->
+    <position name="blshin_x" joint="blshin_x" gear="1"/>
+    <position name="blshin_y" joint="blshin_y" gear="1"/>
+    <position name="blshin_z" joint="blshin_z" gear="1"/>
+    <position name="blankle_x" joint="blankle_x" gear="1"/>
+    <position name="blankle_y" joint="blankle_y" gear="1"/>
+    <position name="blankle_z" joint="blankle_z" gear="1"/>
+    <position name="blfoot_x" joint="blfoot_x" gear="1"/>
+    <position name="blfoot_y" joint="blfoot_y" gear="1"/>
+    <position name="blfoot_z" joint="blfoot_z" gear="1"/>
+    <position name="tail1_x" joint="tail1_x" gear="1"/>
+    <position name="tail1_y" joint="tail1_y" gear="1"/>
+    <position name="tail1_z" joint="tail1_z" gear="1"/>
+    <!-- <position name="29_x" joint="29_x" gear="1"/>
+    <position name="29_y" joint="29_y" gear="1"/>
+    <position name="29_z" joint="29_z" gear="1"/>
+    <position name="30_x" joint="30_x" gear="1"/>
+    <position name="30_y" joint="30_y" gear="1"/>
+    <position name="30_z" joint="30_z" gear="1"/>
+    <position name="31_x" joint="31_x" gear="1"/>
+    <position name="31_y" joint="31_y" gear="1"/>
+    <position name="31_z" joint="31_z" gear="1"/> -->
+    <position name="tail2_x" joint="tail2_x" gear="1"/>
+    <position name="tail2_y" joint="tail2_y" gear="1"/>
+    <position name="tail2_z" joint="tail2_z" gear="1"/>
+  </actuator>
+   <equality>
+    <!-- Lock body B to its parent A (fixed relative pose) -->
+    <!-- <weld body1="1" body2="spine2" solref="0.02 1" solimp="0.9 0.95 0.001"></weld> -->
+    <!-- <weld body1="4" body2="spine1" solref="0.02 1" solimp="0.9 0.95 0.001"></weld>
+    <weld body1="9" body2="spine1" solref="0.02 1" solimp="0.9 0.95 0.001"></weld> -->
+    <weld body1="19" body2="brthigh" solref="0.02 1" solimp="0.9 0.95 0.001"></weld>
+    <weld body1="24" body2="blthigh" solref="0.02 1" solimp="0.9 0.95 0.001"></weld>
+    <!-- <weld body1="frthigh" body2="4" solref="0.02 1" solimp="0.9 0.95 0.001"></weld>
+    <weld body1="flthigh" body2="9" solref="0.02 1" solimp="0.9 0.95 0.001"></weld> -->
+    <weld body1="14" body2="spine1" solref="0.02 1" solimp="0.9 0.95 0.001"></weld>
+    <weld body1="16" body2="neck1" solref="0.02 1" solimp="0.9 0.95 0.001"></weld>
+    <weld body1="34" body2="neck2" solref="0.02 1" solimp="0.9 0.95 0.001"></weld>
+    <weld body1="35" body2="neck2" solref="0.02 1" solimp="0.9 0.95 0.001"></weld>
+    <weld body1="29" body2="tail1" solref="0.02 1" solimp="0.9 0.95 0.001"></weld>
+    <weld body1="30" body2="29" solref="0.02 1" solimp="0.9 0.95 0.001"></weld>
+    <weld body1="31" body2="30" solref="0.02 1" solimp="0.9 0.95 0.001"></weld>
+
+      <!-- parents = {'1': 'spine2', 'torso': '1', 'spine1': 'torso', '4': 
+      'spine1', 'frthigh': '4', 'frshin': 'frthigh', 'frankle': 'frshin', 'frfoot': 'frankle', 
+      '9': 'spine1', 'flthigh': '9', 'flshin': 'flthigh', 'flankle': 'flshin', 'flfoot': 'flankle', 
+      '14': 'spine1', 'neck1': '14', '16': 'neck1', 'neck2': '16', 'brthigh': 'spine2', '19': 
+      'brthigh', 'brshin': '19', 'brankle': 'brshin', 'brfoot': 'brankle', 'blthigh': 'spine2', 
+      '24': 'blthigh', 'blshin': '24', 'blankle': 'blshin', 'blfoot': 'blankle', 'tail1': 'spine2', '
+      29': 'tail1', '30': '29', '31': '30', 'tail2': '31', 'head': 'neck2', '34': 'neck2', '35': 'neck2'} -->
+       
+    
+  </equality>
+  <size njmax="700" nconmax="700"/>
+  <contact>
+    <exclude body1="spine2" body2="1"/>
+    <exclude body1="spine2" body2="torso"/>
+    <exclude body1="spine2" body2="spine1"/>
+    <exclude body1="spine2" body2="4"/>
+    <exclude body1="spine2" body2="frthigh"/>
+    <exclude body1="spine2" body2="frshin"/>
+    <exclude body1="spine2" body2="frankle"/>
+    <exclude body1="spine2" body2="frfoot"/>
+    <exclude body1="spine2" body2="9"/>
+    <exclude body1="spine2" body2="flthigh"/>
+    <exclude body1="spine2" body2="flshin"/>
+    <exclude body1="spine2" body2="flankle"/>
+    <exclude body1="spine2" body2="flfoot"/>
+    <exclude body1="spine2" body2="14"/>
+    <exclude body1="spine2" body2="neck1"/>
+    <exclude body1="spine2" body2="16"/>
+    <exclude body1="spine2" body2="neck2"/>
+    <exclude body1="spine2" body2="brthigh"/>
+    <exclude body1="spine2" body2="19"/>
+    <exclude body1="spine2" body2="brshin"/>
+    <exclude body1="spine2" body2="brankle"/>
+    <exclude body1="spine2" body2="brfoot"/>
+    <exclude body1="spine2" body2="blthigh"/>
+    <exclude body1="spine2" body2="24"/>
+    <exclude body1="spine2" body2="blshin"/>
+    <exclude body1="spine2" body2="blankle"/>
+    <exclude body1="spine2" body2="blfoot"/>
+    <exclude body1="spine2" body2="tail1"/>
+    <exclude body1="spine2" body2="29"/>
+    <exclude body1="spine2" body2="30"/>
+    <exclude body1="spine2" body2="31"/>
+    <exclude body1="spine2" body2="tail2"/>
+    <exclude body1="spine2" body2="head"/>
+    <exclude body1="spine2" body2="34"/>
+    <exclude body1="spine2" body2="35"/>
+    <exclude body1="1" body2="torso"/>
+    <exclude body1="1" body2="spine1"/>
+    <exclude body1="1" body2="4"/>
+    <exclude body1="1" body2="frthigh"/>
+    <exclude body1="1" body2="frshin"/>
+    <exclude body1="1" body2="frankle"/>
+    <exclude body1="1" body2="frfoot"/>
+    <exclude body1="1" body2="9"/>
+    <exclude body1="1" body2="flthigh"/>
+    <exclude body1="1" body2="flshin"/>
+    <exclude body1="1" body2="flankle"/>
+    <exclude body1="1" body2="flfoot"/>
+    <exclude body1="1" body2="14"/>
+    <exclude body1="1" body2="neck1"/>
+    <exclude body1="1" body2="16"/>
+    <exclude body1="1" body2="neck2"/>
+    <exclude body1="1" body2="brthigh"/>
+    <exclude body1="1" body2="19"/>
+    <exclude body1="1" body2="brshin"/>
+    <exclude body1="1" body2="brankle"/>
+    <exclude body1="1" body2="brfoot"/>
+    <exclude body1="1" body2="blthigh"/>
+    <exclude body1="1" body2="24"/>
+    <exclude body1="1" body2="blshin"/>
+    <exclude body1="1" body2="blankle"/>
+    <exclude body1="1" body2="blfoot"/>
+    <exclude body1="1" body2="tail1"/>
+    <exclude body1="1" body2="29"/>
+    <exclude body1="1" body2="30"/>
+    <exclude body1="1" body2="31"/>
+    <exclude body1="1" body2="tail2"/>
+    <exclude body1="1" body2="head"/>
+    <exclude body1="1" body2="34"/>
+    <exclude body1="1" body2="35"/>
+    <exclude body1="torso" body2="spine1"/>
+    <exclude body1="torso" body2="4"/>
+    <exclude body1="torso" body2="frthigh"/>
+    <exclude body1="torso" body2="frshin"/>
+    <exclude body1="torso" body2="frankle"/>
+    <exclude body1="torso" body2="frfoot"/>
+    <exclude body1="torso" body2="9"/>
+    <exclude body1="torso" body2="flthigh"/>
+    <exclude body1="torso" body2="flshin"/>
+    <exclude body1="torso" body2="flankle"/>
+    <exclude body1="torso" body2="flfoot"/>
+    <exclude body1="torso" body2="14"/>
+    <exclude body1="torso" body2="neck1"/>
+    <exclude body1="torso" body2="16"/>
+    <exclude body1="torso" body2="neck2"/>
+    <exclude body1="torso" body2="brthigh"/>
+    <exclude body1="torso" body2="19"/>
+    <exclude body1="torso" body2="brshin"/>
+    <exclude body1="torso" body2="brankle"/>
+    <exclude body1="torso" body2="brfoot"/>
+    <exclude body1="torso" body2="blthigh"/>
+    <exclude body1="torso" body2="24"/>
+    <exclude body1="torso" body2="blshin"/>
+    <exclude body1="torso" body2="blankle"/>
+    <exclude body1="torso" body2="blfoot"/>
+    <exclude body1="torso" body2="tail1"/>
+    <exclude body1="torso" body2="29"/>
+    <exclude body1="torso" body2="30"/>
+    <exclude body1="torso" body2="31"/>
+    <exclude body1="torso" body2="tail2"/>
+    <exclude body1="torso" body2="head"/>
+    <exclude body1="torso" body2="34"/>
+    <exclude body1="torso" body2="35"/>
+    <exclude body1="spine1" body2="4"/>
+    <exclude body1="spine1" body2="frthigh"/>
+    <exclude body1="spine1" body2="frshin"/>
+    <exclude body1="spine1" body2="frankle"/>
+    <exclude body1="spine1" body2="frfoot"/>
+    <exclude body1="spine1" body2="9"/>
+    <exclude body1="spine1" body2="flthigh"/>
+    <exclude body1="spine1" body2="flshin"/>
+    <exclude body1="spine1" body2="flankle"/>
+    <exclude body1="spine1" body2="flfoot"/>
+    <exclude body1="spine1" body2="14"/>
+    <exclude body1="spine1" body2="neck1"/>
+    <exclude body1="spine1" body2="16"/>
+    <exclude body1="spine1" body2="neck2"/>
+    <exclude body1="spine1" body2="brthigh"/>
+    <exclude body1="spine1" body2="19"/>
+    <exclude body1="spine1" body2="brshin"/>
+    <exclude body1="spine1" body2="brankle"/>
+    <exclude body1="spine1" body2="brfoot"/>
+    <exclude body1="spine1" body2="blthigh"/>
+    <exclude body1="spine1" body2="24"/>
+    <exclude body1="spine1" body2="blshin"/>
+    <exclude body1="spine1" body2="blankle"/>
+    <exclude body1="spine1" body2="blfoot"/>
+    <exclude body1="spine1" body2="tail1"/>
+    <exclude body1="spine1" body2="29"/>
+    <exclude body1="spine1" body2="30"/>
+    <exclude body1="spine1" body2="31"/>
+    <exclude body1="spine1" body2="tail2"/>
+    <exclude body1="spine1" body2="head"/>
+    <exclude body1="spine1" body2="34"/>
+    <exclude body1="spine1" body2="35"/>
+    <exclude body1="4" body2="frthigh"/>
+    <exclude body1="4" body2="frshin"/>
+    <exclude body1="4" body2="frankle"/>
+    <exclude body1="4" body2="frfoot"/>
+    <exclude body1="4" body2="9"/>
+    <exclude body1="4" body2="flthigh"/>
+    <exclude body1="4" body2="flshin"/>
+    <exclude body1="4" body2="flankle"/>
+    <exclude body1="4" body2="flfoot"/>
+    <exclude body1="4" body2="14"/>
+    <exclude body1="4" body2="neck1"/>
+    <exclude body1="4" body2="16"/>
+    <exclude body1="4" body2="neck2"/>
+    <exclude body1="4" body2="brthigh"/>
+    <exclude body1="4" body2="19"/>
+    <exclude body1="4" body2="brshin"/>
+    <exclude body1="4" body2="brankle"/>
+    <exclude body1="4" body2="brfoot"/>
+    <exclude body1="4" body2="blthigh"/>
+    <exclude body1="4" body2="24"/>
+    <exclude body1="4" body2="blshin"/>
+    <exclude body1="4" body2="blankle"/>
+    <exclude body1="4" body2="blfoot"/>
+    <exclude body1="4" body2="tail1"/>
+    <exclude body1="4" body2="29"/>
+    <exclude body1="4" body2="30"/>
+    <exclude body1="4" body2="31"/>
+    <exclude body1="4" body2="tail2"/>
+    <exclude body1="4" body2="head"/>
+    <exclude body1="4" body2="34"/>
+    <exclude body1="4" body2="35"/>
+    <exclude body1="frthigh" body2="frshin"/>
+    <exclude body1="frthigh" body2="frankle"/>
+    <exclude body1="frthigh" body2="frfoot"/>
+    <exclude body1="frthigh" body2="9"/>
+    <exclude body1="frthigh" body2="flthigh"/>
+    <exclude body1="frthigh" body2="flshin"/>
+    <exclude body1="frthigh" body2="flankle"/>
+    <exclude body1="frthigh" body2="flfoot"/>
+    <exclude body1="frthigh" body2="14"/>
+    <exclude body1="frthigh" body2="neck1"/>
+    <exclude body1="frthigh" body2="16"/>
+    <exclude body1="frthigh" body2="neck2"/>
+    <exclude body1="frthigh" body2="brthigh"/>
+    <exclude body1="frthigh" body2="19"/>
+    <exclude body1="frthigh" body2="brshin"/>
+    <exclude body1="frthigh" body2="brankle"/>
+    <exclude body1="frthigh" body2="brfoot"/>
+    <exclude body1="frthigh" body2="blthigh"/>
+    <exclude body1="frthigh" body2="24"/>
+    <exclude body1="frthigh" body2="blshin"/>
+    <exclude body1="frthigh" body2="blankle"/>
+    <exclude body1="frthigh" body2="blfoot"/>
+    <exclude body1="frthigh" body2="tail1"/>
+    <exclude body1="frthigh" body2="29"/>
+    <exclude body1="frthigh" body2="30"/>
+    <exclude body1="frthigh" body2="31"/>
+    <exclude body1="frthigh" body2="tail2"/>
+    <exclude body1="frthigh" body2="head"/>
+    <exclude body1="frthigh" body2="34"/>
+    <exclude body1="frthigh" body2="35"/>
+    <exclude body1="frshin" body2="frankle"/>
+    <exclude body1="frshin" body2="frfoot"/>
+    <exclude body1="frshin" body2="9"/>
+    <exclude body1="frshin" body2="flthigh"/>
+    <exclude body1="frshin" body2="flshin"/>
+    <exclude body1="frshin" body2="flankle"/>
+    <exclude body1="frshin" body2="flfoot"/>
+    <exclude body1="frshin" body2="14"/>
+    <exclude body1="frshin" body2="neck1"/>
+    <exclude body1="frshin" body2="16"/>
+    <exclude body1="frshin" body2="neck2"/>
+    <exclude body1="frshin" body2="brthigh"/>
+    <exclude body1="frshin" body2="19"/>
+    <exclude body1="frshin" body2="brshin"/>
+    <exclude body1="frshin" body2="brankle"/>
+    <exclude body1="frshin" body2="brfoot"/>
+    <exclude body1="frshin" body2="blthigh"/>
+    <exclude body1="frshin" body2="24"/>
+    <exclude body1="frshin" body2="blshin"/>
+    <exclude body1="frshin" body2="blankle"/>
+    <exclude body1="frshin" body2="blfoot"/>
+    <exclude body1="frshin" body2="tail1"/>
+    <exclude body1="frshin" body2="29"/>
+    <exclude body1="frshin" body2="30"/>
+    <exclude body1="frshin" body2="31"/>
+    <exclude body1="frshin" body2="tail2"/>
+    <exclude body1="frshin" body2="head"/>
+    <exclude body1="frshin" body2="34"/>
+    <exclude body1="frshin" body2="35"/>
+    <exclude body1="frankle" body2="frfoot"/>
+    <exclude body1="frankle" body2="9"/>
+    <exclude body1="frankle" body2="flthigh"/>
+    <exclude body1="frankle" body2="flshin"/>
+    <exclude body1="frankle" body2="flankle"/>
+    <exclude body1="frankle" body2="flfoot"/>
+    <exclude body1="frankle" body2="14"/>
+    <exclude body1="frankle" body2="neck1"/>
+    <exclude body1="frankle" body2="16"/>
+    <exclude body1="frankle" body2="neck2"/>
+    <exclude body1="frankle" body2="brthigh"/>
+    <exclude body1="frankle" body2="19"/>
+    <exclude body1="frankle" body2="brshin"/>
+    <exclude body1="frankle" body2="brankle"/>
+    <exclude body1="frankle" body2="brfoot"/>
+    <exclude body1="frankle" body2="blthigh"/>
+    <exclude body1="frankle" body2="24"/>
+    <exclude body1="frankle" body2="blshin"/>
+    <exclude body1="frankle" body2="blankle"/>
+    <exclude body1="frankle" body2="blfoot"/>
+    <exclude body1="frankle" body2="tail1"/>
+    <exclude body1="frankle" body2="29"/>
+    <exclude body1="frankle" body2="30"/>
+    <exclude body1="frankle" body2="31"/>
+    <exclude body1="frankle" body2="tail2"/>
+    <exclude body1="frankle" body2="head"/>
+    <exclude body1="frankle" body2="34"/>
+    <exclude body1="frankle" body2="35"/>
+    <exclude body1="frfoot" body2="9"/>
+    <exclude body1="frfoot" body2="flthigh"/>
+    <exclude body1="frfoot" body2="flshin"/>
+    <exclude body1="frfoot" body2="flankle"/>
+    <exclude body1="frfoot" body2="flfoot"/>
+    <exclude body1="frfoot" body2="14"/>
+    <exclude body1="frfoot" body2="neck1"/>
+    <exclude body1="frfoot" body2="16"/>
+    <exclude body1="frfoot" body2="neck2"/>
+    <exclude body1="frfoot" body2="brthigh"/>
+    <exclude body1="frfoot" body2="19"/>
+    <exclude body1="frfoot" body2="brshin"/>
+    <exclude body1="frfoot" body2="brankle"/>
+    <exclude body1="frfoot" body2="brfoot"/>
+    <exclude body1="frfoot" body2="blthigh"/>
+    <exclude body1="frfoot" body2="24"/>
+    <exclude body1="frfoot" body2="blshin"/>
+    <exclude body1="frfoot" body2="blankle"/>
+    <exclude body1="frfoot" body2="blfoot"/>
+    <exclude body1="frfoot" body2="tail1"/>
+    <exclude body1="frfoot" body2="29"/>
+    <exclude body1="frfoot" body2="30"/>
+    <exclude body1="frfoot" body2="31"/>
+    <exclude body1="frfoot" body2="tail2"/>
+    <exclude body1="frfoot" body2="head"/>
+    <exclude body1="frfoot" body2="34"/>
+    <exclude body1="frfoot" body2="35"/>
+    <exclude body1="9" body2="flthigh"/>
+    <exclude body1="9" body2="flshin"/>
+    <exclude body1="9" body2="flankle"/>
+    <exclude body1="9" body2="flfoot"/>
+    <exclude body1="9" body2="14"/>
+    <exclude body1="9" body2="neck1"/>
+    <exclude body1="9" body2="16"/>
+    <exclude body1="9" body2="neck2"/>
+    <exclude body1="9" body2="brthigh"/>
+    <exclude body1="9" body2="19"/>
+    <exclude body1="9" body2="brshin"/>
+    <exclude body1="9" body2="brankle"/>
+    <exclude body1="9" body2="brfoot"/>
+    <exclude body1="9" body2="blthigh"/>
+    <exclude body1="9" body2="24"/>
+    <exclude body1="9" body2="blshin"/>
+    <exclude body1="9" body2="blankle"/>
+    <exclude body1="9" body2="blfoot"/>
+    <exclude body1="9" body2="tail1"/>
+    <exclude body1="9" body2="29"/>
+    <exclude body1="9" body2="30"/>
+    <exclude body1="9" body2="31"/>
+    <exclude body1="9" body2="tail2"/>
+    <exclude body1="9" body2="head"/>
+    <exclude body1="9" body2="34"/>
+    <exclude body1="9" body2="35"/>
+    <exclude body1="flthigh" body2="flshin"/>
+    <exclude body1="flthigh" body2="flankle"/>
+    <exclude body1="flthigh" body2="flfoot"/>
+    <exclude body1="flthigh" body2="14"/>
+    <exclude body1="flthigh" body2="neck1"/>
+    <exclude body1="flthigh" body2="16"/>
+    <exclude body1="flthigh" body2="neck2"/>
+    <exclude body1="flthigh" body2="brthigh"/>
+    <exclude body1="flthigh" body2="19"/>
+    <exclude body1="flthigh" body2="brshin"/>
+    <exclude body1="flthigh" body2="brankle"/>
+    <exclude body1="flthigh" body2="brfoot"/>
+    <exclude body1="flthigh" body2="blthigh"/>
+    <exclude body1="flthigh" body2="24"/>
+    <exclude body1="flthigh" body2="blshin"/>
+    <exclude body1="flthigh" body2="blankle"/>
+    <exclude body1="flthigh" body2="blfoot"/>
+    <exclude body1="flthigh" body2="tail1"/>
+    <exclude body1="flthigh" body2="29"/>
+    <exclude body1="flthigh" body2="30"/>
+    <exclude body1="flthigh" body2="31"/>
+    <exclude body1="flthigh" body2="tail2"/>
+    <exclude body1="flthigh" body2="head"/>
+    <exclude body1="flthigh" body2="34"/>
+    <exclude body1="flthigh" body2="35"/>
+    <exclude body1="flshin" body2="flankle"/>
+    <exclude body1="flshin" body2="flfoot"/>
+    <exclude body1="flshin" body2="14"/>
+    <exclude body1="flshin" body2="neck1"/>
+    <exclude body1="flshin" body2="16"/>
+    <exclude body1="flshin" body2="neck2"/>
+    <exclude body1="flshin" body2="brthigh"/>
+    <exclude body1="flshin" body2="19"/>
+    <exclude body1="flshin" body2="brshin"/>
+    <exclude body1="flshin" body2="brankle"/>
+    <exclude body1="flshin" body2="brfoot"/>
+    <exclude body1="flshin" body2="blthigh"/>
+    <exclude body1="flshin" body2="24"/>
+    <exclude body1="flshin" body2="blshin"/>
+    <exclude body1="flshin" body2="blankle"/>
+    <exclude body1="flshin" body2="blfoot"/>
+    <exclude body1="flshin" body2="tail1"/>
+    <exclude body1="flshin" body2="29"/>
+    <exclude body1="flshin" body2="30"/>
+    <exclude body1="flshin" body2="31"/>
+    <exclude body1="flshin" body2="tail2"/>
+    <exclude body1="flshin" body2="head"/>
+    <exclude body1="flshin" body2="34"/>
+    <exclude body1="flshin" body2="35"/>
+    <exclude body1="flankle" body2="flfoot"/>
+    <exclude body1="flankle" body2="14"/>
+    <exclude body1="flankle" body2="neck1"/>
+    <exclude body1="flankle" body2="16"/>
+    <exclude body1="flankle" body2="neck2"/>
+    <exclude body1="flankle" body2="brthigh"/>
+    <exclude body1="flankle" body2="19"/>
+    <exclude body1="flankle" body2="brshin"/>
+    <exclude body1="flankle" body2="brankle"/>
+    <exclude body1="flankle" body2="brfoot"/>
+    <exclude body1="flankle" body2="blthigh"/>
+    <exclude body1="flankle" body2="24"/>
+    <exclude body1="flankle" body2="blshin"/>
+    <exclude body1="flankle" body2="blankle"/>
+    <exclude body1="flankle" body2="blfoot"/>
+    <exclude body1="flankle" body2="tail1"/>
+    <exclude body1="flankle" body2="29"/>
+    <exclude body1="flankle" body2="30"/>
+    <exclude body1="flankle" body2="31"/>
+    <exclude body1="flankle" body2="tail2"/>
+    <exclude body1="flankle" body2="head"/>
+    <exclude body1="flankle" body2="34"/>
+    <exclude body1="flankle" body2="35"/>
+    <exclude body1="flfoot" body2="14"/>
+    <exclude body1="flfoot" body2="neck1"/>
+    <exclude body1="flfoot" body2="16"/>
+    <exclude body1="flfoot" body2="neck2"/>
+    <exclude body1="flfoot" body2="brthigh"/>
+    <exclude body1="flfoot" body2="19"/>
+    <exclude body1="flfoot" body2="brshin"/>
+    <exclude body1="flfoot" body2="brankle"/>
+    <exclude body1="flfoot" body2="brfoot"/>
+    <exclude body1="flfoot" body2="blthigh"/>
+    <exclude body1="flfoot" body2="24"/>
+    <exclude body1="flfoot" body2="blshin"/>
+    <exclude body1="flfoot" body2="blankle"/>
+    <exclude body1="flfoot" body2="blfoot"/>
+    <exclude body1="flfoot" body2="tail1"/>
+    <exclude body1="flfoot" body2="29"/>
+    <exclude body1="flfoot" body2="30"/>
+    <exclude body1="flfoot" body2="31"/>
+    <exclude body1="flfoot" body2="tail2"/>
+    <exclude body1="flfoot" body2="head"/>
+    <exclude body1="flfoot" body2="34"/>
+    <exclude body1="flfoot" body2="35"/>
+    <exclude body1="14" body2="neck1"/>
+    <exclude body1="14" body2="16"/>
+    <exclude body1="14" body2="neck2"/>
+    <exclude body1="14" body2="brthigh"/>
+    <exclude body1="14" body2="19"/>
+    <exclude body1="14" body2="brshin"/>
+    <exclude body1="14" body2="brankle"/>
+    <exclude body1="14" body2="brfoot"/>
+    <exclude body1="14" body2="blthigh"/>
+    <exclude body1="14" body2="24"/>
+    <exclude body1="14" body2="blshin"/>
+    <exclude body1="14" body2="blankle"/>
+    <exclude body1="14" body2="blfoot"/>
+    <exclude body1="14" body2="tail1"/>
+    <exclude body1="14" body2="29"/>
+    <exclude body1="14" body2="30"/>
+    <exclude body1="14" body2="31"/>
+    <exclude body1="14" body2="tail2"/>
+    <exclude body1="14" body2="head"/>
+    <exclude body1="14" body2="34"/>
+    <exclude body1="14" body2="35"/>
+    <exclude body1="neck1" body2="16"/>
+    <exclude body1="neck1" body2="neck2"/>
+    <exclude body1="neck1" body2="brthigh"/>
+    <exclude body1="neck1" body2="19"/>
+    <exclude body1="neck1" body2="brshin"/>
+    <exclude body1="neck1" body2="brankle"/>
+    <exclude body1="neck1" body2="brfoot"/>
+    <exclude body1="neck1" body2="blthigh"/>
+    <exclude body1="neck1" body2="24"/>
+    <exclude body1="neck1" body2="blshin"/>
+    <exclude body1="neck1" body2="blankle"/>
+    <exclude body1="neck1" body2="blfoot"/>
+    <exclude body1="neck1" body2="tail1"/>
+    <exclude body1="neck1" body2="29"/>
+    <exclude body1="neck1" body2="30"/>
+    <exclude body1="neck1" body2="31"/>
+    <exclude body1="neck1" body2="tail2"/>
+    <exclude body1="neck1" body2="head"/>
+    <exclude body1="neck1" body2="34"/>
+    <exclude body1="neck1" body2="35"/>
+    <exclude body1="16" body2="neck2"/>
+    <exclude body1="16" body2="brthigh"/>
+    <exclude body1="16" body2="19"/>
+    <exclude body1="16" body2="brshin"/>
+    <exclude body1="16" body2="brankle"/>
+    <exclude body1="16" body2="brfoot"/>
+    <exclude body1="16" body2="blthigh"/>
+    <exclude body1="16" body2="24"/>
+    <exclude body1="16" body2="blshin"/>
+    <exclude body1="16" body2="blankle"/>
+    <exclude body1="16" body2="blfoot"/>
+    <exclude body1="16" body2="tail1"/>
+    <exclude body1="16" body2="29"/>
+    <exclude body1="16" body2="30"/>
+    <exclude body1="16" body2="31"/>
+    <exclude body1="16" body2="tail2"/>
+    <exclude body1="16" body2="head"/>
+    <exclude body1="16" body2="34"/>
+    <exclude body1="16" body2="35"/>
+    <exclude body1="neck2" body2="brthigh"/>
+    <exclude body1="neck2" body2="19"/>
+    <exclude body1="neck2" body2="brshin"/>
+    <exclude body1="neck2" body2="brankle"/>
+    <exclude body1="neck2" body2="brfoot"/>
+    <exclude body1="neck2" body2="blthigh"/>
+    <exclude body1="neck2" body2="24"/>
+    <exclude body1="neck2" body2="blshin"/>
+    <exclude body1="neck2" body2="blankle"/>
+    <exclude body1="neck2" body2="blfoot"/>
+    <exclude body1="neck2" body2="tail1"/>
+    <exclude body1="neck2" body2="29"/>
+    <exclude body1="neck2" body2="30"/>
+    <exclude body1="neck2" body2="31"/>
+    <exclude body1="neck2" body2="tail2"/>
+    <exclude body1="neck2" body2="head"/>
+    <exclude body1="neck2" body2="34"/>
+    <exclude body1="neck2" body2="35"/>
+    <exclude body1="brthigh" body2="19"/>
+    <exclude body1="brthigh" body2="brshin"/>
+    <exclude body1="brthigh" body2="brankle"/>
+    <exclude body1="brthigh" body2="brfoot"/>
+    <exclude body1="brthigh" body2="blthigh"/>
+    <exclude body1="brthigh" body2="24"/>
+    <exclude body1="brthigh" body2="blshin"/>
+    <exclude body1="brthigh" body2="blankle"/>
+    <exclude body1="brthigh" body2="blfoot"/>
+    <exclude body1="brthigh" body2="tail1"/>
+    <exclude body1="brthigh" body2="29"/>
+    <exclude body1="brthigh" body2="30"/>
+    <exclude body1="brthigh" body2="31"/>
+    <exclude body1="brthigh" body2="tail2"/>
+    <exclude body1="brthigh" body2="head"/>
+    <exclude body1="brthigh" body2="34"/>
+    <exclude body1="brthigh" body2="35"/>
+    <exclude body1="19" body2="brshin"/>
+    <exclude body1="19" body2="brankle"/>
+    <exclude body1="19" body2="brfoot"/>
+    <exclude body1="19" body2="blthigh"/>
+    <exclude body1="19" body2="24"/>
+    <exclude body1="19" body2="blshin"/>
+    <exclude body1="19" body2="blankle"/>
+    <exclude body1="19" body2="blfoot"/>
+    <exclude body1="19" body2="tail1"/>
+    <exclude body1="19" body2="29"/>
+    <exclude body1="19" body2="30"/>
+    <exclude body1="19" body2="31"/>
+    <exclude body1="19" body2="tail2"/>
+    <exclude body1="19" body2="head"/>
+    <exclude body1="19" body2="34"/>
+    <exclude body1="19" body2="35"/>
+    <exclude body1="brshin" body2="brankle"/>
+    <exclude body1="brshin" body2="brfoot"/>
+    <exclude body1="brshin" body2="blthigh"/>
+    <exclude body1="brshin" body2="24"/>
+    <exclude body1="brshin" body2="blshin"/>
+    <exclude body1="brshin" body2="blankle"/>
+    <exclude body1="brshin" body2="blfoot"/>
+    <exclude body1="brshin" body2="tail1"/>
+    <exclude body1="brshin" body2="29"/>
+    <exclude body1="brshin" body2="30"/>
+    <exclude body1="brshin" body2="31"/>
+    <exclude body1="brshin" body2="tail2"/>
+    <exclude body1="brshin" body2="head"/>
+    <exclude body1="brshin" body2="34"/>
+    <exclude body1="brshin" body2="35"/>
+    <exclude body1="brankle" body2="brfoot"/>
+    <exclude body1="brankle" body2="blthigh"/>
+    <exclude body1="brankle" body2="24"/>
+    <exclude body1="brankle" body2="blshin"/>
+    <exclude body1="brankle" body2="blankle"/>
+    <exclude body1="brankle" body2="blfoot"/>
+    <exclude body1="brankle" body2="tail1"/>
+    <exclude body1="brankle" body2="29"/>
+    <exclude body1="brankle" body2="30"/>
+    <exclude body1="brankle" body2="31"/>
+    <exclude body1="brankle" body2="tail2"/>
+    <exclude body1="brankle" body2="head"/>
+    <exclude body1="brankle" body2="34"/>
+    <exclude body1="brankle" body2="35"/>
+    <exclude body1="brfoot" body2="blthigh"/>
+    <exclude body1="brfoot" body2="24"/>
+    <exclude body1="brfoot" body2="blshin"/>
+    <exclude body1="brfoot" body2="blankle"/>
+    <exclude body1="brfoot" body2="blfoot"/>
+    <exclude body1="brfoot" body2="tail1"/>
+    <exclude body1="brfoot" body2="29"/>
+    <exclude body1="brfoot" body2="30"/>
+    <exclude body1="brfoot" body2="31"/>
+    <exclude body1="brfoot" body2="tail2"/>
+    <exclude body1="brfoot" body2="head"/>
+    <exclude body1="brfoot" body2="34"/>
+    <exclude body1="brfoot" body2="35"/>
+    <exclude body1="blthigh" body2="24"/>
+    <exclude body1="blthigh" body2="blshin"/>
+    <exclude body1="blthigh" body2="blankle"/>
+    <exclude body1="blthigh" body2="blfoot"/>
+    <exclude body1="blthigh" body2="tail1"/>
+    <exclude body1="blthigh" body2="29"/>
+    <exclude body1="blthigh" body2="30"/>
+    <exclude body1="blthigh" body2="31"/>
+    <exclude body1="blthigh" body2="tail2"/>
+    <exclude body1="blthigh" body2="head"/>
+    <exclude body1="blthigh" body2="34"/>
+    <exclude body1="blthigh" body2="35"/>
+    <exclude body1="24" body2="blshin"/>
+    <exclude body1="24" body2="blankle"/>
+    <exclude body1="24" body2="blfoot"/>
+    <exclude body1="24" body2="tail1"/>
+    <exclude body1="24" body2="29"/>
+    <exclude body1="24" body2="30"/>
+    <exclude body1="24" body2="31"/>
+    <exclude body1="24" body2="tail2"/>
+    <exclude body1="24" body2="head"/>
+    <exclude body1="24" body2="34"/>
+    <exclude body1="24" body2="35"/>
+    <exclude body1="blshin" body2="blankle"/>
+    <exclude body1="blshin" body2="blfoot"/>
+    <exclude body1="blshin" body2="tail1"/>
+    <exclude body1="blshin" body2="29"/>
+    <exclude body1="blshin" body2="30"/>
+    <exclude body1="blshin" body2="31"/>
+    <exclude body1="blshin" body2="tail2"/>
+    <exclude body1="blshin" body2="head"/>
+    <exclude body1="blshin" body2="34"/>
+    <exclude body1="blshin" body2="35"/>
+    <exclude body1="blankle" body2="blfoot"/>
+    <exclude body1="blankle" body2="tail1"/>
+    <exclude body1="blankle" body2="29"/>
+    <exclude body1="blankle" body2="30"/>
+    <exclude body1="blankle" body2="31"/>
+    <exclude body1="blankle" body2="tail2"/>
+    <exclude body1="blankle" body2="head"/>
+    <exclude body1="blankle" body2="34"/>
+    <exclude body1="blankle" body2="35"/>
+    <exclude body1="blfoot" body2="tail1"/>
+    <exclude body1="blfoot" body2="29"/>
+    <exclude body1="blfoot" body2="30"/>
+    <exclude body1="blfoot" body2="31"/>
+    <exclude body1="blfoot" body2="tail2"/>
+    <exclude body1="blfoot" body2="head"/>
+    <exclude body1="blfoot" body2="34"/>
+    <exclude body1="blfoot" body2="35"/>
+    <exclude body1="tail1" body2="29"/>
+    <exclude body1="tail1" body2="30"/>
+    <exclude body1="tail1" body2="31"/>
+    <exclude body1="tail1" body2="tail2"/>
+    <exclude body1="tail1" body2="head"/>
+    <exclude body1="tail1" body2="34"/>
+    <exclude body1="tail1" body2="35"/>
+    <exclude body1="29" body2="30"/>
+    <exclude body1="29" body2="31"/>
+    <exclude body1="29" body2="tail2"/>
+    <exclude body1="29" body2="head"/>
+    <exclude body1="29" body2="34"/>
+    <exclude body1="29" body2="35"/>
+    <exclude body1="30" body2="31"/>
+    <exclude body1="30" body2="tail2"/>
+    <exclude body1="30" body2="head"/>
+    <exclude body1="30" body2="34"/>
+    <exclude body1="30" body2="35"/>
+    <exclude body1="31" body2="tail2"/>
+    <exclude body1="31" body2="head"/>
+    <exclude body1="31" body2="34"/>
+    <exclude body1="31" body2="35"/>
+    <exclude body1="tail2" body2="head"/>
+    <exclude body1="tail2" body2="34"/>
+    <exclude body1="tail2" body2="35"/>
+    <exclude body1="head" body2="34"/>
+    <exclude body1="head" body2="35"/>
+    <exclude body1="34" body2="35"/>
+  </contact>
+</mujoco>

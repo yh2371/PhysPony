@@ -1,0 +1,8 @@
+--num_envs 4096
+
+--env_config data/envs/deepmimic_horse_env_dataset_uni_drop2.yaml
+--agent_config data/agents/deepmimic_horse_ppo_agent.yaml
+
+--log_file output/log_uni_drop2.txt
+--out_model_file output/model_uni_drop2.pt
+--model_file output_stash/model_uni_pretrained.pt

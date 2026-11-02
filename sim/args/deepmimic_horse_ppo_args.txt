@@ -1,0 +1,7 @@
+--num_envs 4096
+
+--env_config data/envs/deepmimic_horse_env_dataset.yaml
+--agent_config data/agents/deepmimic_horse_ppo_agent.yaml
+
+--log_file output/log_full.txt
+--out_model_file output/model_full.pt

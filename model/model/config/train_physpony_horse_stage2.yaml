@@ -1,0 +1,93 @@
+# PhysPony kinematic model (local articulation). Trains from scratch in one run:
+#   0-10k iterations     rendering losses only
+#   10k-500k iterations  + teacher distillation, temporal smoothing and KLD
+# Dessie's image encoders are frozen; the motion transformer and all decoders train.
+#
+#   python run.py --config-name train_physpony_horse_stage2
+
+hydra:
+  run:
+    dir: .
+  output_subdir: ${checkpoint_dir}
+
+
+defaults:
+  - base
+  - dataset: sequence
+  - model: ponymation
+
+
+dataset:
+  in_image_size: 256
+  out_image_size: 256
+  batch_size: 1
+  random_xflip_train: true
+  num_frames: 10
+  train_data_dir: ${oc.env:PHYSPONY_DATA,../data/magicpony}/horse_combined/train
+  val_data_dir: ${oc.env:PHYSPONY_DATA,../data/magicpony}/horse_combined/test
+  random_shuffle_samples_train: true
+  load_dino_feature: true
+  dino_feature_dim: 16
+
+
+# Dessie checkpoint (frozen encoders and teacher).
+dessie_ckpt: ${oc.env:DESSIE_CKPT,../checkpoints/dessie/best.ckpt}
+
+
+model:
+  enable_render: render
+  dessie_encoders_only: true
+  use_frozen_teacher: true
+  freeze_kinematic_encoders: true     # the Dessie encoders stay frozen
+  freeze_kinematic_core: false        # the fusion transformer trains
+  freeze_shape_decoder: false         # shape decoder trains from scratch
+  freeze_pretrained_branches: false
+  grad_clip_max_norm: 1.0
+  cfg_predictor_base:
+    cfg_shape:
+      grid_res_coarse_iter_range: [0, inf]
+  cfg_predictor_instance:
+    enable_motion_vae: true
+    enable_deform: false
+    enable_scale: true
+    enable_frame_masking_curriculum: true
+    frame_masking_min_frames: 1
+    cfg_articulation:
+      extra_constraints: false
+      articulation_iter_range: [0, inf]
+  cfg_loss:
+    # temporal smoothness
+    campose_smooth_loss_weight: 1.0
+    camposevel_smooth_loss_weight: 1.0
+    predcam_smooth_loss_weight: 1.0
+    predcamvel_smooth_loss_weight: 1.0
+    predcam_speed_hingeloss_weight: 0.1
+    # teacher distillation
+    arti_recon_loss_weight: 100.0
+    cam_recon_loss_weight: 10.0
+    shape_recon_loss_weight: 100.0
+    shape_recon_perframe_loss_weight: 100.0
+    root_recon_loss_weight: 10.0
+    pose_feat_loss_weight: 1.0
+    cam_feat_loss_weight: 1.0
+    shape_feat_loss_weight: 1.0
+    cam_fused_feat_loss_weight: 1.0
+    cam_recon_scale: [0.34, 0.14, 5.65]
+    kld_loss_weight: 0.001
+    # smoothness, distillation and KLD start at iteration 10k
+    distill_loss_iter_range: [10000, inf]
+
+
+run_train: true
+run_test: false
+seed: 0
+gpu: 0
+num_iters: 500000
+save_checkpoint_freq: 2000
+keep_num_checkpoint: 12
+checkpoint_dir: results/physpony/horse_stage2
+checkpoint_name: null      # null -> newest checkpoint in checkpoint_dir
+resume: true               # re-running resumes from the newest checkpoint
+load_optim: true
+logger_type: wandb
+mixed_precision: false

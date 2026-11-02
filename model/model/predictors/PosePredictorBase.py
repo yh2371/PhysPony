@@ -1,0 +1,804 @@
+from dataclasses import dataclass, field, asdict
+from typing import List, Optional
+import numpy as np
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from einops import rearrange, repeat
+from model import networks
+from model.utils import misc
+from model.geometry.skinning import estimate_bones, skinning
+from model.render import util, mesh, light
+from model.paths import SMAL_DIR
+import joblib
+from geometry.SMAL.smal_torch.smal_torch import SMAL
+from pytorch3d.structures import Meshes
+from pytorch3d.transforms import axis_angle_to_matrix
+from pytorch3d.transforms import matrix_to_rotation_6d, rotation_6d_to_matrix
+import os
+import torch.nn.functional as F
+import pytorch3d
+
+def rotmat_to_axis_angle(x, number = 36):
+    # [B, J, 3, 3] rotation matrices -> [B, J*3] axis-angle
+    # (from https://github.com/nkolot/SPIN/blob/master/train/trainer.py#L180)
+    batch_size = x.shape[0]
+    x2 = x.view(-1,3,3)
+    # Convert predicted rotation matrices to axis-angle
+    pred_rotmat_hom = torch.cat(
+        [x2,
+         torch.tensor([0, 0, 1], dtype=torch.float32,device=x.device).view(1, 3, 1).expand(batch_size * number, -1, -1)], dim=-1)
+    pred_pose = rotation_matrix_to_angle_axis(pred_rotmat_hom).contiguous().view(batch_size, -1)
+    # tgm.rotation_matrix_to_angle_axis returns NaN for 0 rotation, so manually hack it
+    pred_pose[torch.isnan(pred_pose)] = 0.0
+    return pred_pose
+
+def rot6d_to_rotmat(x):
+    """Convert 6D rotation representation to 3x3 rotation matrix.
+    Based on Zhou et al., "On the Continuity of Rotation Representations in Neural Networks", CVPR 2019
+    Input:
+        (B,6) Batch of 6-D rotation representations
+    Output:
+        (B,3,3) Batch of corresponding rotation matrices
+    """
+    x = x.view(-1, 3, 2)
+    a1 = x[:, :, 0]
+    a2 = x[:, :, 1]
+    b1 = F.normalize(a1)
+    b2 = F.normalize(a2 - torch.einsum('bi,bi->b', b1, a2).unsqueeze(-1) * b1)
+    b3 = torch.cross(b1, b2, dim=1)
+    return torch.stack((b1, b2, b3), dim=-1)
+
+
+def safe_rotation_6d_to_matrix(x):
+    """Safer version of rotation_6d_to_matrix with numerical stability checks."""
+    x = x.view(-1, 3, 2)
+    a1 = x[:, :, 0]
+    a2 = x[:, :, 1]
+    
+    # Check for zero vectors and handle them
+    a1_norm = torch.norm(a1, dim=1, keepdim=True)
+    a2_norm = torch.norm(a2, dim=1, keepdim=True)
+    
+    # If a1 is zero, use a default vector
+    zero_mask1 = (a1_norm < 1e-8).squeeze(-1)
+    if zero_mask1.any():
+        a1[zero_mask1] = torch.tensor([1.0, 0.0, 0.0], device=x.device)
+        a1_norm[zero_mask1] = 1.0
+    
+    # If a2 is zero, use a default vector
+    zero_mask2 = (a2_norm < 1e-8).squeeze(-1)
+    if zero_mask2.any():
+        a2[zero_mask2] = torch.tensor([0.0, 1.0, 0.0], device=x.device)
+        a2_norm[zero_mask2] = 1.0
+    
+    b1 = F.normalize(a1, eps=1e-8)
+    b2 = F.normalize(a2 - torch.einsum('bi,bi->b', b1, a2).unsqueeze(-1) * b1, eps=1e-8)
+    b3 = torch.cross(b1, b2, dim=1)
+    
+    # Ensure b3 is normalized
+    b3_norm = torch.norm(b3, dim=1, keepdim=True)
+    zero_mask3 = (b3_norm < 1e-8).squeeze(-1)
+    if zero_mask3.any():
+        # If b3 is zero, compute it as cross product of b1 and a default vector
+        default_vec = torch.tensor([0.0, 0.0, 1.0], device=x.device)
+        b3[zero_mask3] = torch.cross(b1[zero_mask3], default_vec.expand_as(b1[zero_mask3]), dim=1)
+        b3_norm[zero_mask3] = torch.norm(b3[zero_mask3], dim=1, keepdim=True)
+    
+    b3 = F.normalize(b3, eps=1e-8)
+    
+    # Recompute b2 to ensure orthogonality
+    b2 = torch.cross(b3, b1, dim=1)
+    b2 = F.normalize(b2, eps=1e-8)
+    
+    result = torch.stack((b1, b2, b3), dim=-1)
+    
+    # Final check for valid rotation matrix
+    
+    return result
+
+
+@dataclass
+class ViTEncoderConfig:
+    cout: int = 640
+    which_vit: str = 'dino_vits8'
+    pretrained: bool = False
+    frozen: bool = False
+    final_layer_type: str = 'conv'
+
+
+@dataclass
+class TextureConfig:
+    texture_iter_range: List[int] = field(default_factory=lambda: [-1, -1])  # by default, turned on throughout
+    cout: int = 9  # by default, only first three channels are used as albedo RGB
+    num_layers: int = 5
+    hidden_size: int = 64
+    activation: str = "sigmoid"
+    kd_minmax: List[List[float]] = field(default_factory=lambda: [[0., 0.], [0., 0.], [0., 0.]])
+    ks_minmax: List[List[float]] = field(default_factory=lambda: [[0., 0.], [0., 0.], [0., 0.]])
+    nrm_minmax: List[List[float]] = field(default_factory=lambda: [[-1., 1.], [-1., 1.], [0., 1.]])
+    embed_concat_pts: bool = True
+    embedder_freq: int = 10
+    symmetrize: bool = False
+    uv_size: int = 256
+
+
+@dataclass
+class PoseConfig:
+    architecture: str = 'encoder_dino_patch_key'
+    cam_pos_z_offset: float = 10.
+    fov: float = 25.
+    max_trans_xy_range_ratio: float = 1.
+    max_trans_z_range_ratio: float = 1.
+    rot_rep: str = 'euler_angle'
+
+    max_rot_x_range: float = 180.
+    max_rot_y_range: float = 180.
+    max_rot_z_range: float = 180.
+    
+    lookat_zeroy: bool = False
+    
+    rot_temp_scalar: float = 1.
+    naive_probs_iter: int = 2000
+    best_pose_start_iter: int = 6000
+    
+    rand_campos: bool = True
+
+
+@dataclass
+class DeformConfig:
+    deform_iter_range: List[int] = field(default_factory=lambda: [-1, -1])
+    num_layers: int = 5
+    hidden_size: int = 64
+    embed_concat_pts: bool = True
+    embedder_freq: int = 10
+    symmetrize: bool = False
+    force_avg_deform: bool = True
+
+
+@dataclass
+class ArticulationConfig:
+    articulation_iter_range: List[int] = field(default_factory=lambda: [-1, -1])
+    architecture: str = 'mlp'
+    num_layers: int = 4
+    hidden_size: int = 64
+    embedder_freq: int = 8
+    bone_feature_mode: str = 'global'
+    num_body_bones: int = 4  # assuming an even number of body bones
+    body_bones_mode: str = 'z_minmax'
+    num_legs: int = 0
+    num_leg_bones: int = 0
+    attach_legs_to_body_iter_range: List[int] = field(default_factory=lambda: [-1, -1])
+    legs_to_body_joint_indices: Optional[List[int]] = None
+    static_root_bones: bool = False
+    skinning_temperature: float = 1.
+    max_arti_angle: float = 60.
+    constrain_legs: bool = False
+    output_multiplier: float = 1.
+    enable_refine: bool = False
+    refine_feature_mode: bool = False
+    predict_delta: bool = False
+    use_fauna_constraints: bool = False
+    enable_gradient_clipping: bool = True
+    gradient_clip_value: float = 0.1
+    enable_numerical_stability: bool = True
+
+
+@dataclass
+class LightingConfig:
+    num_layers: int = 5
+    hidden_size: int = 64
+    amb_diff_minmax: List[List[float]] = field(default_factory=lambda: [[0.0, 1.0], [0.5, 1.0]])
+
+
+@dataclass
+class PosePredictorBaseConfig:
+    cfg_encoder: ViTEncoderConfig
+    cfg_texture: TextureConfig
+    cfg_pose: PoseConfig
+    spatial_scale: float = 5.
+    enable_deform: bool = False
+    cfg_deform: Optional[DeformConfig] = None
+    enable_articulation: bool = False
+    cfg_articulation: Optional[ArticulationConfig] = None
+    enable_lighting: bool = False
+    cfg_light: Optional[LightingConfig] = None
+    smal_model_dir: str = SMAL_DIR
+
+
+class PosePredictorBase(nn.Module):
+    def __init__(self, cfg: PosePredictorBaseConfig):
+        super().__init__()
+        misc.load_cfg(self, cfg, PosePredictorBaseConfig)
+        
+        embedder_scalar = 2 * np.pi / self.spatial_scale * 0.9  # originally (-0.5*s, 0.5*s) rescale to (-pi, pi) * 0.9
+
+        ## Image encoder
+        self.netEncoder = networks.ViTEncoder(**asdict(self.cfg_encoder))
+        vit_feat_dim = self.netEncoder.vit_feat_dim
+        enc_feat_dim = self.cfg_encoder.cout
+        
+        ## Texture network
+        kd_minmax = torch.FloatTensor(self.cfg_texture.kd_minmax)  # 3x2
+        ks_minmax = torch.FloatTensor(self.cfg_texture.ks_minmax)  # 3x2
+        nrm_minmax = torch.FloatTensor(self.cfg_texture.nrm_minmax)  # 3x2
+        texture_min_max = torch.cat((kd_minmax, ks_minmax, nrm_minmax), dim=0)  # 9x2
+        self.netTexture = networks.CoordMLP(
+            3,  # x, y, z coordinates
+            self.cfg_texture.cout,
+            self.cfg_texture.num_layers,
+            nf=self.cfg_texture.hidden_size,
+            dropout=0,
+            activation=self.cfg_texture.activation,
+            min_max=texture_min_max,
+            n_harmonic_functions=self.cfg_texture.embedder_freq,
+            embedder_scalar=embedder_scalar,
+            embed_concat_pts=self.cfg_texture.embed_concat_pts,
+            extra_feat_dim=enc_feat_dim,
+            symmetrize=self.cfg_texture.symmetrize
+        )
+
+        half_range = np.tan(self.cfg_pose.fov /2 /180 * np.pi) * self.cfg_pose.cam_pos_z_offset  # default=2.22
+        self.max_trans_xyz_range = torch.FloatTensor([
+            self.cfg_pose.max_trans_xy_range_ratio,
+            self.cfg_pose.max_trans_xy_range_ratio,
+            self.cfg_pose.max_trans_z_range_ratio]) * half_range
+        if self.cfg_pose.rot_rep == 'euler_angle':
+            pose_cout = 6  # 3 for rotation, 3 for translation
+            self.max_rot_xyz_range = torch.FloatTensor([
+                self.cfg_pose.max_rot_x_range,
+                self.cfg_pose.max_rot_y_range,
+                self.cfg_pose.max_rot_z_range]) /180 * np.pi
+        elif self.cfg_pose.rot_rep == 'quaternion':
+            pose_cout = 7  # 4 for rotation, 3 for translation
+        elif self.cfg_pose.rot_rep == 'lookat':
+            pose_cout = 6  # 3 for forward vector, 3 for translation
+        elif self.cfg_pose.rot_rep == 'quadlookat':
+            self.num_pose_hypos = 4
+            pose_cout = (3 + 1) * self.num_pose_hypos + 3  # forward vector + prob logits for each hypothesis, 3 for translation
+            self.orthant_signs = torch.FloatTensor([[1,1,1], [-1,1,1], [-1,1,-1], [1,1,-1]])  # 4x3
+        elif self.cfg_pose.rot_rep == 'octlookat':
+            self.num_pose_hypos = 8
+            pose_cout = (3 + 1) * self.num_pose_hypos + 3  # forward vector + prob logits for each hypothesis, 3 for translation
+            self.orthant_signs = torch.stack(torch.meshgrid([torch.arange(1, -2, -2)] *3), -1).view(-1, 3)  # 8x3
+        else:
+            raise NotImplementedError
+        
+        
+        dessie_dim = 640
+        self.netArticulation= nn.Sequential(
+            nn.Conv2d(vit_feat_dim, 256, kernel_size=3, stride=1, padding=1),nn.ReLU(),nn.MaxPool2d(kernel_size=2, stride=2), # Output size: [2, 256, 16, 16]
+            nn.Conv2d(256, 128, kernel_size=3, stride=1, padding=1),nn.ReLU(),nn.MaxPool2d(kernel_size=2, stride=2), # Output size: [2, 128, 8, 8]
+            nn.Conv2d(128, dessie_dim, kernel_size=8)  #  # Output size: [2, 640, 1, 1]
+        )
+        self.fc_decpose1 = nn.Linear(dessie_dim+35 * 6, 1024)
+        self.fc_decpose2 = nn.Linear(1024, dessie_dim)
+        self.decpose = nn.Linear(dessie_dim, 35 * 6)
+        self.drop1 = nn.Dropout()
+
+        mean_params = np.load(os.path.join(self.smal_model_dir, '6D_meanpose.npz'), allow_pickle=True)['mean_pose'].astype(
+            np.float32)
+        mean_params[0, :] = [-0.0517, 0.9979, -0.2873, -0.0517, -0.9564, -0.0384]
+        init_pose = torch.reshape(torch.from_numpy(mean_params.copy()).unsqueeze(0), [1, -1])
+        self.register_buffer('init_pose', init_pose)
+
+        self.netPose = nn.Sequential(
+                nn.Conv2d(vit_feat_dim, 256, kernel_size=3, stride=1, padding=1),nn.ReLU(),nn.MaxPool2d(kernel_size=2, stride=2),  # Output size: [2, 256, 16, 16]
+                nn.Conv2d(256, 128, kernel_size=3, stride=1, padding=1),nn.ReLU(),nn.MaxPool2d(kernel_size=2, stride=2),  # Output size: [2, 128, 8, 8]
+                nn.Conv2d(128, dessie_dim, kernel_size=8)  # # Output size: [2, 640, 1, 1]
+            )
+
+        ncam = 3
+        fc1_feat_num = 1024
+        fc2_feat_num = dessie_dim
+        final_feat_num = fc2_feat_num
+        self.fc_deccam1 = nn.Linear(final_feat_num + ncam + 6, fc1_feat_num)
+        self.fc_deccam2 = nn.Linear(fc1_feat_num, final_feat_num)
+        self.deccam = nn.Linear(final_feat_num, ncam)
+        self.decroot = nn.Linear(final_feat_num, 1 * 6)
+
+        init_cam = torch.from_numpy(np.array([0.6,0.0,0.0])).unsqueeze(0).type(torch.float32)
+        self.register_buffer('init_cam', init_cam)
+
+        ## Deformation network
+        if self.enable_deform:
+            self.netDeform = networks.CoordMLP(
+                3,  # x, y, z coordinates
+                3,  # dx, dy, dz deformation
+                self.cfg_deform.num_layers,
+                nf=self.cfg_deform.hidden_size,
+                dropout=0,
+                activation=None,
+                min_max=None,
+                n_harmonic_functions=self.cfg_deform.embedder_freq,
+                embedder_scalar=embedder_scalar,
+                embed_concat_pts=self.cfg_deform.embed_concat_pts,
+                extra_feat_dim=enc_feat_dim,
+                symmetrize=self.cfg_deform.symmetrize
+            )
+
+        ## Lighting network
+        if self.enable_lighting:
+            self.netLight = light.DirectionalLight(
+                enc_feat_dim,
+                self.cfg_light.num_layers,
+                self.cfg_light.hidden_size,
+                intensity_min_max=torch.FloatTensor(self.cfg_light.amb_diff_minmax)
+            )
+
+
+        
+
+    def forward_encoder(self, images):
+        images_in = images.view(-1, *images.shape[2:]) * 2 - 1  # (B*F)xCxHxW rescale to (-1, 1)
+        feat_out, feat_key, patch_out, patch_key = self.netEncoder(images_in, return_patches=True)
+        return feat_out, feat_key, patch_out, patch_key
+    
+    def cam_bbox(self, crop_cam, r=256, focal_length=5000., scale_min=0.3, scale_max=1.5):
+        # Keep the crop scale in [0.3, 1.5] (it is inverted into depth below). Straight-through
+        # clamp: forward value is clamped, gradient passes through unchanged.
+        raw_scale = crop_cam[:, 0]
+        clamped_scale = raw_scale.clamp(min=scale_min, max=scale_max)
+        scale = raw_scale + (clamped_scale - raw_scale).detach()
+        bs = r * scale + 1e-9
+        tz = 2 * focal_length / bs
+        tx = crop_cam[:, 1]
+        ty = crop_cam[:, 2]
+        full_cam = torch.stack([tx, ty, tz], dim=-1)
+        return full_cam
+
+    def forward_pose_dessie(self, patch_out, patch_key, **kwargs):
+        b = patch_key.shape[0]
+        x = self.netPose(patch_key).view(b, -1)
+        pred_cam = self.init_cam.expand(b, -1)
+        pred_root = self.init_pose[0, :6].expand(b, -1)
+        
+        for i in range(3):
+            xc = torch.cat([x, pred_cam, pred_root], 1)
+            xc = self.fc_deccam1(xc)
+            xc = self.drop1(xc)
+            xc = self.fc_deccam2(xc)
+            xc = self.drop1(xc)
+            pred_cam = self.deccam(xc) + pred_cam
+            pred_root = self.decroot(xc) + pred_root
+
+        pose_rot = rot6d_to_rotmat(pred_root)
+        pred_cam = self.cam_bbox(pred_cam)
+
+        pose = torch.cat([pose_rot.view(b, -1), pred_cam], 1)
+       
+        return pose, pose_rot, pred_cam
+
+
+    def forward_pose(self, patch_out, patch_key, **kwargs):
+        if self.cfg_pose.architecture == 'encoder_dino_patch_key':
+            pose = self.netPose(patch_key)  # Shape: (B, latent_dim)
+        elif self.cfg_pose.architecture == 'encoder_dino_patch_out':
+            pose = self.netPose(patch_out)  # Shape: (B, latent_dim)
+        else:
+            raise NotImplementedError
+        
+        ## xyz translation
+        trans_pred = pose[..., -3:].tanh() * self.max_trans_xyz_range.to(pose.device)
+
+        ## rotation
+        if self.cfg_pose.rot_rep == 'euler_angle':
+            rot_pred = pose[..., :3].tanh() * self.max_rot_xyz_range.to(pose.device)
+
+        elif self.cfg_pose.rot_rep == 'quaternion':
+            quat_init = torch.FloatTensor([0.01,0,0,0]).to(pose.device)
+            rot_pred = pose[..., :4] + quat_init
+            rot_pred = nn.functional.normalize(rot_pred, p=2, dim=-1)
+            rot_pred = rot_pred * rot_pred[...,:1].sign()  # make real part non-negative
+
+        elif self.cfg_pose.rot_rep == 'lookat':
+            vec_forward = pose[..., :3]
+            if self.cfg_pose.lookat_zeroy:
+                vec_forward = vec_forward * torch.FloatTensor([1,0,1]).to(pose.device)
+            vec_forward = nn.functional.normalize(vec_forward, p=2, dim=-1)  # x right, y up, z forward
+            rot_pred = vec_forward
+
+        elif self.cfg_pose.rot_rep in ['quadlookat', 'octlookat']:
+            rots_pred = pose[..., :self.num_pose_hypos*4].view(-1, self.num_pose_hypos, 4)  # (B*F, K, 4)
+            rots_logits = rots_pred[..., :1]
+            vec_forward = rots_pred[..., 1:4]
+
+            def softplus_with_init(x, init=0.5):
+                assert np.abs(init) > 1e-8, "initial value should be non-zero"
+                beta = np.log(2) / init
+                return nn.functional.softplus(x, beta=beta)
+            
+            xs, ys, zs = vec_forward.unbind(-1)
+            xs = softplus_with_init(xs, init=0.5)  # initialize to 0.5
+            if self.cfg_pose.rot_rep == 'octlookat':
+                ys = softplus_with_init(ys, init=0.5)  # initialize to 0.5
+            if self.cfg_pose.lookat_zeroy:
+                ys = ys * 0
+            zs = softplus_with_init(zs, init=0.5)  # initialize to 0.5
+            vec_forward = torch.stack([xs, ys, zs], -1)
+            vec_forward = vec_forward * self.orthant_signs.to(pose.device)
+            vec_forward = nn.functional.normalize(vec_forward, p=2, dim=-1)  # x right, y up, z forward
+            rot_pred = torch.cat([rots_logits, vec_forward], -1).view(-1, self.num_pose_hypos*4)  # (B*F, K*4)
+
+        else:
+            raise NotImplementedError
+        
+        pose = torch.cat([rot_pred, trans_pred], -1)
+        return pose
+    
+    def forward_deformation(self, shape, feat=None, **kwargs):
+        original_verts = shape.verts_padded()
+        num_verts = original_verts.shape[1]
+        if feat is not None:
+            deform_feat = feat[:, None, :].repeat(1, num_verts, 1)  # Shape: (B, num_verts, latent_dim)
+        deformation = self.netDeform(original_verts, deform_feat) * 0.1  # Shape: (B, num_verts, 3), multiply by 0.1 to minimize disruption when initially enabled
+        shape.update_padded(original_verts + deformation)
+        return shape, deformation
+
+    def get_bones(self, verts, feat, patch_feat, mvp, w2c, batch_size, num_frames, epoch, total_iter):
+        """Get estimated bones from prior shape and corresponding bone feature and encoding"""
+        ## recompute kinematic tree at the beginning of each epoch
+        if self.kinematic_tree_epoch != epoch:
+            attach_legs_to_body = in_range(total_iter, self.cfg_articulation.attach_legs_to_body_iter_range)
+            bones, self.kinematic_tree, self.bone_aux = estimate_bones(
+                verts.detach(), n_body_bones=self.cfg_articulation.num_body_bones,
+                n_legs=self.cfg_articulation.num_legs, n_leg_bones=self.cfg_articulation.num_leg_bones,
+                body_bones_mode=self.cfg_articulation.body_bones_mode, compute_kinematic_chain=True,
+                attach_legs_to_body=attach_legs_to_body,
+                legs_to_body_joint_indices=self.cfg_articulation.legs_to_body_joint_indices
+            )
+            self.kinematic_tree_epoch = epoch
+        else:
+            bones = estimate_bones(
+                verts.detach(), n_body_bones=self.cfg_articulation.num_body_bones,
+                n_legs=self.cfg_articulation.num_legs, n_leg_bones=self.cfg_articulation.num_leg_bones,
+                body_bones_mode=self.cfg_articulation.body_bones_mode, compute_kinematic_chain=False, aux=self.bone_aux,
+                legs_to_body_joint_indices=self.cfg_articulation.legs_to_body_joint_indices
+            )
+
+        ## 2D location of bone mid point
+        bones_pos = bones  # Shape: (B, F, K, 2, 3)
+        if batch_size > bones_pos.shape[0] or num_frames > bones_pos.shape[1]:
+            assert bones_pos.shape[0] == 1 and bones_pos.shape[1] == 1, \
+                "canonical mesh should have batch_size=1 and num_frames=1"
+            bones_pos = bones_pos.repeat(batch_size, num_frames, 1, 1, 1)
+        num_bones = bones_pos.shape[2]
+        bones_pos = bones_pos.view(batch_size * num_frames, num_bones, 2, 3)  # NxKx2x3
+        bones_mid_pos = bones_pos.mean(2)  # NxKx3
+        bones_mid_pos_world4 = torch.cat([bones_mid_pos, torch.ones_like(bones_mid_pos[..., :1])], -1)  # NxKx4
+        bones_mid_pos_clip4 = bones_mid_pos_world4 @ mvp.transpose(-1, -2)
+        bones_mid_pos_2d = bones_mid_pos_clip4[..., :2] / bones_mid_pos_clip4[..., 3:4]
+        bones_mid_pos_2d = bones_mid_pos_2d.detach()  # we don't want gradient to flow through the camera projection
+
+        ## 3D locations of two bone end points in camera space
+        bones_pos_world4 = torch.cat([bones_pos, torch.ones_like(bones_pos[..., :1])], -1)  # NxKx2x4
+        bones_pos_cam4 = bones_pos_world4 @ w2c[:, None].transpose(-1, -2)
+        bones_pos_cam3 = bones_pos_cam4[..., :3] / bones_pos_cam4[..., 3:4]
+        bones_pos_cam3 = bones_pos_cam3 + torch.FloatTensor(
+            [0, 0, self.cfg_pose.cam_pos_z_offset]
+        ).to(bones_pos_cam3.device).view(1, 1, 1, 3)
+        # (-1, 1), NxKx(2*3)
+        bones_pos_3d = bones_pos_cam3.view(batch_size * num_frames, num_bones, 2 * 3) / self.spatial_scale * 2
+
+        ## bone index
+        bones_idx = torch.arange(num_bones).to(bones_pos.device)
+        bones_idx_in = ((bones_idx[None, :, None] + 0.5) / num_bones * 2 - 1).repeat(batch_size * num_frames, 1, 1)
+        bones_pos_in = torch.cat([bones_mid_pos_2d, bones_pos_3d, bones_idx_in], -1)
+        bones_pos_in = bones_pos_in.detach()  # we don't want gradient to flow through the camera pose
+
+        if feat is not None and patch_feat is not None:
+            global_feat = feat[:, None].repeat(1, num_bones, 1)  # (BxF, K, feat_dim)
+            local_feat = F.grid_sample(
+                patch_feat, bones_mid_pos_2d.view(batch_size * num_frames, 1, -1, 2), mode='bilinear', align_corners=False
+            ).squeeze(dim=-2).permute(0, 2, 1)  # (BxF, K, feat_dim)
+            if self.cfg_articulation.bone_feature_mode == "global":
+                bones_feat = global_feat
+            elif self.cfg_articulation.bone_feature_mode == "sample":
+                bones_feat = local_feat
+            elif self.cfg_articulation.bone_feature_mode == "sample+global":
+                bones_feat = torch.cat([global_feat, local_feat], -1)
+            else:
+                raise NotImplementedError
+        else:
+            bones_feat = None
+        return bones, bones_feat, bones_pos_in
+
+    def get_bones_from_articulation(self, verts, feat, patch_feat, mvp, w2c, bones, articulation_angles):
+        """Get estimated bones from prior shape and corresponding bone feature and encoding"""
+        ## get posed bones from articulation angle
+        verts_articulated, aux = skinning(
+            verts, bones, self.kinematic_tree, articulation_angles, output_posed_bones=True,
+            temperature=self.cfg_articulation.skinning_temperature
+        )
+        ## 2D location of bone mid point
+        batch_size, num_frames = verts_articulated.shape[:2]
+        num_bones = bones.shape[2]
+        bones_pos = aux['posed_bones']  # (B, F, K, 2, 3)
+        bones_pos = rearrange(bones_pos, "b f ... -> (b f) ...")  # (BxF, K, 2, 3)
+        articulation_angles = rearrange(articulation_angles, "b f ... -> (b f) ...")  # (BxF, K, 3)
+        bones_mid_pos = bones_pos.mean(2)  # NxKx3
+        bones_mid_pos_world4 = torch.cat([bones_mid_pos, torch.ones_like(bones_mid_pos[..., :1])], -1)  # NxKx4
+        bones_mid_pos_clip4 = bones_mid_pos_world4 @ mvp.transpose(-1, -2)
+        bones_mid_pos_2d = bones_mid_pos_clip4[..., :2] / bones_mid_pos_clip4[..., 3:4]
+        bones_mid_pos_2d = bones_mid_pos_2d.detach()  # we don't want gradient to flow through the camera projection
+
+        ## 3D locations of two bone end points in camera space
+        bones_pos_world4 = torch.cat([bones_pos, torch.ones_like(bones_pos[..., :1])], -1)  # NxKx2x4
+        bones_pos_cam4 = bones_pos_world4 @ w2c[:, None].transpose(-1, -2)
+        bones_pos_cam3 = bones_pos_cam4[..., :3] / bones_pos_cam4[..., 3:4]
+        bones_pos_cam3 = bones_pos_cam3 + torch.FloatTensor(
+            [0, 0, self.cfg_pose.cam_pos_z_offset]
+        ).to(bones_pos_cam3.device).view(1, 1, 1, 3)
+        # (-1, 1), NxKx(2*3)
+        bones_pos_3d = bones_pos_cam3.view(batch_size * num_frames, num_bones, 2 * 3) / self.spatial_scale * 2
+
+        ## bone index
+        bones_idx = torch.arange(num_bones).to(bones_pos.device)
+        bones_idx_in = ((bones_idx[None, :, None] + 0.5) / num_bones * 2 - 1).repeat(batch_size * num_frames, 1, 1)
+        bones_pos_in = torch.cat([bones_mid_pos_2d, bones_pos_3d, bones_idx_in], -1)
+        bones_pos_in = bones_pos_in.detach()  # we don't want gradient to flow through the camera pose
+
+        ## get global features
+        dino_feat = feat[:, None].repeat(1, num_bones, 1)
+
+        ## get grid sampled bone feature
+        dino_sample = F.grid_sample(
+            patch_feat, bones_mid_pos_2d.view(batch_size * num_frames, 1, -1, 2), mode='bilinear', align_corners=False
+        ).squeeze(dim=-2).permute(0, 2, 1)  # (BxF, K, feat_dim)
+        bones_feat = []
+        if "dino_global" in self.cfg_articulation.refine_feature_mode:
+            bones_feat.append(dino_feat)
+        if "dino_sample" in self.cfg_articulation.refine_feature_mode:
+            bones_feat.append(dino_sample)
+        bones_feat = torch.cat(bones_feat, -1)
+        return bones, bones_feat, bones_pos_in
+
+
+    def apply_articulation_constraints(self, articulation_angles, **kwargs):
+        articulation_angles *= self.cfg_articulation.output_multiplier
+        if self.cfg_articulation.static_root_bones:
+            root_bones = [self.cfg_articulation.num_body_bones // 2 - 1, self.cfg_articulation.num_body_bones - 1]
+            tmp_mask = torch.ones_like(articulation_angles)
+            tmp_mask[:, :, root_bones] = 0
+            articulation_angles = articulation_angles * tmp_mask
+        articulation_angles = articulation_angles.tanh()
+        if self.cfg_articulation.constrain_legs:
+            leg_bones_idx = self.cfg_articulation.num_body_bones \
+                + np.arange(self.cfg_articulation.num_leg_bones * self.cfg_articulation.num_legs)
+            tmp_mask = torch.zeros_like(articulation_angles)
+            tmp_mask[:, :, leg_bones_idx, 2] = 1  # twist / rotation around z axis
+            articulation_angles = tmp_mask * (articulation_angles * 0.3) \
+                + (1 - tmp_mask) * articulation_angles  # limit to (-0.3, 0.3)
+            tmp_mask = torch.zeros_like(articulation_angles)
+            tmp_mask[:, :, leg_bones_idx, 1] = 1  # side bending / rotation around y axis
+            articulation_angles = tmp_mask * (articulation_angles * 0.3) \
+                + (1 - tmp_mask) * articulation_angles  # limit to (-0.3, 0.3)
+
+            # (From Fauna) new regularizations, for bottom 2 bones of each leg, they can only rotate around x-axis,
+            # and for the toppest bone of legs, restrict its angles in a smaller range
+            if self.cfg_articulation.use_fauna_constraints:
+                print("Using Fauna constraints")
+                # regularize the y,z rotation angle of first leg bones
+                leg_bones_top = [10, 13, 16, 19]
+                tmp_mask = torch.zeros_like(articulation_angles)
+                tmp_mask[:, :, leg_bones_top, 1] = 1
+                tmp_mask[:, :, leg_bones_top, 2] = 1
+                articulation_angles = tmp_mask * (articulation_angles * 0.05) + (1 - tmp_mask) * articulation_angles
+
+                # regularize x rotation angle of top two leg bones
+                tmp_mask = torch.zeros_like(articulation_angles)
+                tmp_mask[:, :, leg_bones_top, 0] = 1
+                articulation_angles = tmp_mask * (articulation_angles * 0.75) + (1 - tmp_mask) * articulation_angles
+
+                # zero out y,z rotation angle, regularize x rotation angle of bottom leg bones
+                leg_bones_bottom = [8, 9, 11, 12, 14, 15, 17, 18]
+                tmp_mask = torch.ones_like(articulation_angles)
+                tmp_mask[:, :, leg_bones_bottom, 1] = 0
+                tmp_mask[:, :, leg_bones_bottom, 2] = 0
+                tmp_mask[:, :, leg_bones_bottom, 0] = 0.3
+                articulation_angles = tmp_mask * articulation_angles
+
+                # regularize body bone z-rotation (twist)
+                body_bones_mask = [0, 1, 2, 3, 4, 5, 6, 7]
+                tmp_body_mask = torch.zeros_like(articulation_angles)
+                tmp_body_mask[:, :, body_bones_mask, 2] = 1
+                articulation_angles = tmp_body_mask * (articulation_angles * 0.1) + (1 - tmp_body_mask) * articulation_angles
+
+        if hasattr(self.cfg_articulation, "extra_constraints") and self.cfg_articulation.extra_constraints:
+
+            leg_bones_posx = [self.cfg_articulation.num_body_bones + i for i in range(self.cfg_articulation.num_leg_bones * self.cfg_articulation.num_legs // 2)]
+            leg_bones_negx = [self.cfg_articulation.num_body_bones + self.cfg_articulation.num_leg_bones * self.cfg_articulation.num_legs // 2 + i for i in range(self.cfg_articulation.num_leg_bones * self.cfg_articulation.num_legs // 2)]
+
+            tmp_mask = torch.zeros_like(articulation_angles)
+            tmp_mask[:, :, leg_bones_posx + leg_bones_negx, 2] = 1
+            articulation_angles = tmp_mask * (articulation_angles * 0.3) + (1 - tmp_mask) * articulation_angles  # no twist
+
+            tmp_mask = torch.zeros_like(articulation_angles)
+            tmp_mask[:, :, leg_bones_posx + leg_bones_negx, 1] = 1
+            articulation_angles = tmp_mask * (articulation_angles * 0.3) + (1 - tmp_mask) * articulation_angles  # (-0.4, 0.4),  limit side bending
+
+            leg_bones_top = [8, 11, 14, 17]
+            tmp_mask = torch.zeros_like(articulation_angles)
+            tmp_mask[:, :, leg_bones_top, 1] = 1
+            tmp_mask[:, :, leg_bones_top, 2] = 1
+            articulation_angles = tmp_mask * (articulation_angles * 0.05) + (1 - tmp_mask) * articulation_angles
+
+            leg_bones_bottom = [9, 10, 12, 13, 15, 16, 18, 19]
+            tmp_mask = torch.ones_like(articulation_angles)
+            tmp_mask[:, :, leg_bones_bottom, 1] = 0
+            tmp_mask[:, :, leg_bones_bottom, 2] = 0
+            articulation_angles = tmp_mask * articulation_angles
+
+        articulation_angles = articulation_angles * self.cfg_articulation.max_arti_angle / 180 * np.pi
+        return articulation_angles
+
+    def forward_articulation(self, shape, feat, patch_feat, mvp, w2c, batch_size, num_frames, epoch, total_iter, betas, smal_model=None, pose_rot=None, pred_cam=None, xf_shape=None, netShape=None,**kwargs):
+        verts = shape.verts_padded()
+        if len(verts) == batch_size * num_frames:
+            verts = verts.view(batch_size, num_frames, *verts.shape[1:])  # BxFxNx3
+        else:
+            verts = verts[None]  # 1x1xNx3
+
+        x = self.netArticulation(patch_feat)
+        x = x.view(batch_size*num_frames, -1)
+        articulation_angles = self.init_pose[0, 6:].expand(batch_size*num_frames, -1)
+        for i in range(3):
+            xc = torch.cat([x, articulation_angles], 1)
+            xc = self.fc_decpose1(xc)
+            xc = self.drop1(xc)
+            xc = self.fc_decpose2(xc)
+            xc = self.drop1(xc)
+            articulation_angles = self.decpose(xc) + articulation_angles
+
+        root_pose_yup = axis_angle_to_matrix(torch.tensor([-torch.pi / 2, 0.0, 0.0], device=articulation_angles.device))[:,:2].reshape(1, 6)
+        pose = torch.cat([root_pose_yup.expand(batch_size*num_frames, -1), articulation_angles], -1)
+        trans = torch.zeros(batch_size, 3).to(articulation_angles.device)
+
+        pose_6d = pose.view(batch_size*num_frames*36, 6)
+        pose = safe_rotation_6d_to_matrix(pose_6d).view(batch_size*num_frames, -1, 3, 3)
+        if pose_rot is not None:
+            pose[:,0,:,:] = pose_rot
+        if pred_cam is not None:
+            trans = pred_cam
+
+        aux = {}
+        verts_articulated, joints, _ = smal_model(betas, pose, trans)
+
+        verts_articulated = verts_articulated.view(batch_size*num_frames, -1, 3)  # (B*F)xNx3
+        bones = self._joints_to_bones(joints)
+        bones = bones.reshape(batch_size, num_frames, -1, 2, 3)
+        aux['bones_pred'] = bones
+        aux['posed_bones'] = bones
+        aux['betas'] = betas.view(batch_size*num_frames, -1)
+        aux['pose'] = pose.view(batch_size*num_frames, -1)
+        aux['trans'] = trans.view(batch_size*num_frames, -1)
+        articulated_shape = Meshes(verts=verts_articulated, faces=shape.faces_padded(), textures=shape.textures)
+        articulation_angles_out = pytorch3d.transforms.matrix_to_euler_angles(pose, convention='XYZ')
+
+        return articulated_shape, articulation_angles_out.reshape(batch_size, num_frames, -1), aux
+    
+    def _joints_to_bones(self, joints):
+        bones = []
+        bones_idxs = [[0, 1], [1, 2], [2, 3], [3, 5], [5, 6], [6, 7], [7, 8],
+    [3, 10], [10, 11], [11, 12], [12, 13], [3, 15], [15, 17], 
+    [17,33], [0, 18], [18, 20], [20, 21], [21, 22], [0, 23], [23, 25], [25, 26], [26, 27], [0, 28], [28, 32]]
+        mapping = [2,3,15,17,33,10,11,12,13,5,6,7,8,0,28,32,23,25,26,27,18,20,21,22]
+        for a, b in bones_idxs:
+            bones += [torch.stack([joints[:, a, :], joints[:, b, :]], dim=1)] #Bx2x3
+        bones = torch.stack(bones, dim=1)
+        return bones #BxKx2x3
+
+    def get_camera_extrinsics_from_pose(self, pose, znear=0.1, zfar=1000., offset_extra=None):
+        N = len(pose)
+        pose_R = pose[:, :9].view(N, 3, 3)#.transpose(2, 1)  # to be compatible with pytorch3d
+        if offset_extra is not None:
+            cam_pos_offset = torch.FloatTensor([0, 0, -self.cfg_pose.cam_pos_z_offset - offset_extra]).to(pose.device)
+        else:
+            cam_pos_offset = torch.FloatTensor([0, 0, -self.cfg_pose.cam_pos_z_offset]).to(pose.device)
+        pose_T = pose[:, -3:] + cam_pos_offset[None, None, :]
+        pose_T = pose_T.view(N, 3, 1)
+        pose_R = torch.tensor([[-1, 0, 0],
+                               [0, -1, 0],
+                               [0, 0, 1]]).repeat(N, 1, 1).to(pose.device).float()
+        pose_T = torch.zeros_like(pose_T).to(pose.device).float()
+        pose_RT = torch.cat([pose_R, pose_T], axis=2)  # Nx3x4
+        w2c = torch.cat([pose_RT, torch.FloatTensor([0, 0, 0, 1]).repeat(N, 1, 1).to(pose.device)], axis=1)  # Nx4x4)
+        proj = util.perspective(self.cfg_pose.fov / 180 * np.pi, 1, znear, zfar)[None].to(pose.device)  # assuming square images
+        mvp = torch.matmul(proj, w2c)
+        campos = -torch.matmul(pose_R.transpose(2, 1), pose_T).view(N, 3) #.transpose(2, 1)
+        return mvp, w2c, campos
+
+    @staticmethod
+    def sample_pose_hypothesis_from_quad_predictions(
+        poses_raw, total_iter, rot_temp_scalar=1., num_hypos=4, naive_probs_iter=2000, best_pose_start_iter=6000,
+        random_sample=True
+    ):
+        rots_pred = poses_raw[..., :num_hypos * 4].view(-1, num_hypos, 4)  # NxKx4
+        N = len(rots_pred)
+        rots_logits = rots_pred[..., 0]  # Nx4
+        rots_pred = rots_pred[..., 1:4]
+        trans_pred = poses_raw[..., -3:]
+        temp = 1 / np.clip(total_iter / 1000 / rot_temp_scalar, 1., 100.)
+
+        rots_probs = torch.nn.functional.softmax(-rots_logits / temp, dim=1)  # NxK
+        naive_probs = torch.ones(num_hypos).to(rots_logits.device)
+        naive_probs = naive_probs / naive_probs.sum()
+        naive_probs_weight = np.clip(1 - (total_iter - naive_probs_iter) / 2000, 0, 1)
+        rots_probs = naive_probs.view(1, num_hypos) * naive_probs_weight + rots_probs * (1 - naive_probs_weight)
+        best_rot_idx = torch.argmax(rots_probs, dim=1)  # N
+
+        if random_sample:
+            rand_rot_idx = torch.randperm(N, device=poses_raw.device) % num_hypos  # N
+            best_flag = (torch.randperm(N, device=poses_raw.device) / N < np.clip((total_iter - best_pose_start_iter) / 2000, 0, 0.8)).long()
+            rand_flag = 1 - best_flag
+            rot_idx = best_rot_idx * best_flag + rand_rot_idx * (1 - best_flag)
+        else:
+            rand_flag = torch.zeros_like(best_rot_idx)
+            rot_idx = best_rot_idx
+        rot_pred = torch.gather(rots_pred, 1, rot_idx[:, None, None].expand(-1, 1, 3))[:, 0]  # Nx3
+        pose_raw = torch.cat([rot_pred, trans_pred], -1)
+        rot_prob = torch.gather(rots_probs, 1, rot_idx[:, None].expand(-1, 1))[:, 0]  # N
+        rot_logit = torch.gather(rots_logits, 1, rot_idx[:, None].expand(-1, 1))[:, 0]  # N
+
+        rot_mat = lookat_forward_to_rot_matrix(rot_pred, up=[0, 1, 0])
+        pose = torch.cat([rot_mat.view(N, -1), pose_raw[:, 3:]], -1)  # flattened to Nx12
+        pose_aux = {
+            'rot_idx': rot_idx,
+            'rot_prob': rot_prob,
+            'rot_logit': rot_logit,
+            'rots_probs': rots_probs,
+            'rand_pose_flag': rand_flag
+        }
+        return pose_raw, pose, pose_aux
+
+
+    def forward(self, images=None, prior_shape=None, epoch=None, total_iter=None, is_training=True, betas=None, feat_out=None, feat_key=None, patch_out=None, patch_key=None, smal_model=None, image_only=False, xf_shape=None, netShape=None,**kwargs):
+        if image_only:
+            return self.forward_encoder(images)
+        
+        batch_size, num_frames = images.shape[:2]
+        shape = prior_shape
+        # initially prior_shape only without skeleton info (symmetrical shape, coarse form obtained from supervision obtained 
+        #when sampling different views, i.e. we observe head, torso, legs differentiation to some extent.)
+        texture = self.netTexture
+
+        pose, pose_rot, pred_cam = self.forward_pose_dessie(patch_out, patch_key, frame_ids=kwargs.get('frame_ids'))
+
+        assert self.cfg_pose.rot_rep in ['quadlookat', 'octlookat'], "modify the forward process to support other rotation representations"
+        mvp, w2c, campos = self.get_camera_extrinsics_from_pose(pose)
+
+        deformation = None
+        if self.enable_deform and in_range(total_iter, self.cfg_deform.deform_iter_range):
+            shape, deformation = self.forward_deformation(shape, feat_key, batch_size=batch_size, num_frames=num_frames)
+        else:  # Dummy operations for accelerator ddp
+            if hasattr(self, "netDeform"):
+                shape.update_padded(shape.verts_padded()+sum([p.sum() * 0 for p in self.netDeform.parameters()]))
+            shape.update_padded(shape.verts_padded()+sum([p.sum() * 0 for p in self.netEncoder.parameters()]))
+        arti_params, articulation_aux = None, {}
+        if self.enable_articulation and in_range(total_iter, self.cfg_articulation.articulation_iter_range):
+            shape, arti_params, articulation_aux = self.forward_articulation(shape, feat_key, patch_key, mvp, w2c, batch_size, num_frames, epoch, total_iter, betas, smal_model=smal_model, is_training=is_training, pose_rot=pose_rot, pred_cam=pred_cam, netShape=netShape, xf_shape=xf_shape, frame_ids=kwargs.get('frame_ids'))
+        else:  # Dummy operations for accelerator ddp
+            shape.update_padded(shape.verts_padded()+sum([p.sum() * 0 for p in self.netArticulation.parameters()]))
+
+        light = self.netLight if self.enable_lighting else None
+
+        aux = {} #multi_hypothesis_aux
+        aux.update(articulation_aux)
+        pose_raw = pose
+
+        return shape, pose_raw, pose, mvp, w2c, campos, texture, feat_out, deformation, arti_params, light, aux
+
+
+## utility functions
+def in_range(x, range):
+    return misc.in_range(x, range, default_indicator=-1)
+
+
+def lookat_forward_to_rot_matrix(vec_forward, up=[0,1,0]):
+    up = torch.FloatTensor(up).to(vec_forward.device)
+    vec_right = up.expand_as(vec_forward).cross(vec_forward, dim=-1)
+    vec_right = nn.functional.normalize(vec_right, p=2, dim=-1)
+    vec_up = vec_forward.cross(vec_right, dim=-1)
+    vec_up = nn.functional.normalize(vec_up, p=2, dim=-1)
+    rot_mat = torch.stack([vec_right, vec_up, vec_forward], -2)
+    return rot_mat

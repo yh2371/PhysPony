@@ -1,0 +1,26 @@
+hydra:
+  run:
+    dir: .
+  output_subdir: ${checkpoint_dir}
+
+
+defaults:
+  - base
+  - dataset: image
+  - model: magicpony
+
+
+dataset:
+  in_image_size: 256
+  out_image_size: 256
+  batch_size: 1
+  test_data_dir: ${oc.env:PHYSPONY_ROOT,..}/data/eval/pascal_kp
+  load_dino_feature: false
+  dino_feature_dim: 16
+
+
+run_train: false
+run_test: true
+checkpoint_dir: ${oc.env:PHYSPONY_ROOT,..}/model/results/magicpony/horse_no_dessie_init
+checkpoint_name: checkpoint125000.pth
+test_result_dir: null

@@ -1,0 +1,7 @@
+--num_envs 4096
+
+--env_config data/envs/deepmimic_horse_trajectory_amp_env_77.yaml
+--agent_config data/agents/amp_horse_agent.yaml
+
+--log_file output/log_horse_amp_kin_77.txt
+--out_model_file output/model_horse_amp_kin_77.pt

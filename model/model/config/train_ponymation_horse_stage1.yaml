@@ -1,0 +1,56 @@
+hydra:
+  run:
+    dir: .
+  output_subdir: ${checkpoint_dir}
+
+
+defaults:
+  - base
+  - dataset: sequence
+  - model: ponymation
+
+
+dataset:
+  in_image_size: 256
+  out_image_size: 256
+  batch_size: 1
+  num_frames: 10
+  train_data_dir: ${oc.env:PHYSPONY_DATA,../data/magicpony}/horse_combined/train
+  val_data_dir: ${oc.env:PHYSPONY_DATA,../data/magicpony}/horse_combined/val
+  random_shuffle_samples_train: true
+  load_dino_feature: true
+  dino_feature_dim: 16
+
+
+model:
+  enable_render: true
+  cfg_render:
+    render_default: false
+    renderer_spp: 4
+  cfg_predictor_base:
+    cfg_shape:
+      grid_res_coarse_iter_range: [0, 150000]
+  cfg_predictor_instance:
+    enable_motion_vae: false
+    enable_deform: true
+    cfg_articulation:
+      extra_constraints: false
+  cfg_loss:
+    artivel_smooth_loss_weight: 1
+    campose_smooth_loss_weight: 1
+    cam_recon_loss_weight: 0.0
+    shape_recon_loss_weight: 0.0
+    arti_recon_loss_weight: 0.0
+
+
+run_train: true
+run_test: false
+seed: 0
+gpu: 0
+num_iters: 280000
+checkpoint_dir: results/ponymation/horse_dessie_new
+checkpoint_path: ${oc.env:PHYSPONY_RESULTS,results}/magicpony/horse_dessie_mocap_freeze_test_2/checkpoint20000.pth
+resume: true  # Start from a MagicPony ckpt
+load_optim: false
+logger_type: wandb
+mixed_precision: false

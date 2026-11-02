@@ -1,0 +1,76 @@
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+wandb/
+*.avi
+*.mp4
+*.pdf
+*.zip
+.ipynb_checkpoints/
+
+# Hydra run dirs generated in place under model/
+model/outputs/
+model/multirun/
+
+# Data, checkpoints and outputs live outside git (see README).
+# Anchored to the repo root: an unanchored `data/` would also match sim/data/.
+/data/
+/checkpoints/
+/outputs/
+/release_assets/
+sim/output/
+sim/data/motions/
+sim/mimickit/mocap_full/
+
+# hSMAL model files (download separately, see README)
+model/model/geometry/SMAL/*.pkl
+model/model/geometry/SMAL/*.npz
+model/model/geometry/SMAL/uvmap/
+sim/mimickit/SMAL/*.pkl
+sim/mimickit/SMAL/*.npz
+sim/mimickit/SMAL/uvmap/
+
+# Training logs and run records
+model/logs/
+model/run.log
+model/results/
+sim/logs/
+*.log.aborted
+*.log.failed_override
+*.log.before_restart*
+*.training_[0-9]*
+
+# Editor/tool backups
+*.bak
+*.bak_[0-9]*
+*.orig
+
+# Local experiment drivers, cluster tooling and analysis scripts
+scripts/smoke_test.sh
+model/run_stage1_*.sh
+model/run_stage2_*.sh
+model/runG_watchdog.sh
+model/checkpoint_milestone_archiver.sh
+model/.trace_cover_copy/
+model/_dump_modules_wrapper.py
+model/.sys_modules_dump.json
+model/diagnostics/
+model/eval/report_table1.py
+model/eval/eval_dessie_ceiling.py
+model/eval/table1_checkpoints.yaml
+sim/verify_*.py
+sim/inspect_*.py
+sim/analyze_*.py
+sim/eval_fhv.py
+sim/tools/regen_*.py
+sim/tools/scan_pferd_continuous_runs.py
+/docs/
+fastforward_work/
+fastforward_*.md
+perception/fastvggt/assets/
+sim/data/envs/*_denoised*.yaml
+sim/tools/smooth_motion.py
+sim/tools/fix_kin_joint_ordering.py
+sim/README_evaluation_pipeline.md
+sim/README_kinematic_processing.md

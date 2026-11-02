@@ -1,0 +1,59 @@
+hydra:
+  run:
+    dir: .
+  output_subdir: ${checkpoint_dir}
+
+
+defaults:
+  - base
+  - dataset: sequence
+  - model: ponymation
+
+
+dataset:
+  in_image_size: 256
+  out_image_size: 256
+  batch_size: 1
+  random_xflip_train: true
+  num_frames: 10
+  train_data_dir: ${oc.env:PHYSPONY_DATA,../data/magicpony}/horse_combined/train
+  val_data_dir: ${oc.env:PHYSPONY_DATA,../data/magicpony}/horse_combined/test
+  random_shuffle_samples_train: true
+  load_dino_feature: true
+  dino_feature_dim: 16
+
+
+model:
+  enable_render: render
+  cfg_predictor_base:
+    cfg_shape:
+      grid_res_coarse_iter_range: [0, inf]
+  cfg_predictor_instance:
+    enable_motion_vae: true
+    enable_deform: true
+    enable_scale: true
+    cfg_articulation:
+      extra_constraints: false
+  cfg_loss:
+    campose_smooth_loss_weight: 1.0
+    camposevel_smooth_loss_weight: 1.0
+    predcam_smooth_loss_weight: 1.0
+    predcamvel_smooth_loss_weight: 1.0
+    predcam_speed_hingeloss_weight: 0.1
+    arti_recon_loss_weight: 100.0
+    cam_recon_loss_weight: 10.0
+    shape_recon_loss_weight: 100.0
+    kld_loss_weight: 0.001
+
+
+run_train: true
+run_test: false
+seed: 0
+gpu: 0
+num_iters: 500000
+checkpoint_dir: results/ponymation/pretrained_horse_stage2_rot6d_withrendering_smoothing_extra_global
+checkpoint_name: ${oc.env:PHYSPONY_RESULTS,results}/ponymation/pretrained_horse_stage2_rot6d/checkpoint45000.pth #${oc.env:PHYSPONY_RESULTS,results}/ponymation/horse_dessie_new/checkpoint20100.pth
+resume: true  # Start from a Ponymation stage 1 ckpt
+load_optim: false
+logger_type: wandb
+mixed_precision: false
